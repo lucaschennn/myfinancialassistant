@@ -30,11 +30,14 @@ import {
   humanize,
   listAccounts,
   netWorth,
+  runWorkflow,
   savingsRate,
   setGoal,
   setProfile,
   spendingByCategory,
   toJson,
+  type WorkflowName,
+  type WorkflowParams,
 } from '@pfg/core';
 import { closeDb, loadEnv } from '@pfg/db';
 import { MisconfiguredHarnessError, Session, loadHarnessConfig } from './session.js';
@@ -319,6 +322,88 @@ server.registerTool(
     const { from, to, ...rest } = args;
     return spendingByCategory(await session.ctx(), { period: { from, to }, ...rest });
   }),
+);
+
+// --- Workflows --------------------------------------------------------------
+// The one tool here that is NOT atomic. Everything above exposes a single core
+// function; this runs a fixed pipeline of them (§5) and returns the whole
+// evidence bundle.
+//
+// It exists for interactive testing convenience, and it is deliberately the
+// only pipeline entry point — one tool taking a workflow name, rather than one
+// tool per workflow, so the set of pipelines stays defined in `core` and cannot
+// drift here.
+
+server.registerTool(
+  'runWorkflow',
+  {
+    title: 'Run a workflow pipeline',
+    description:
+      'Run a fixed tool pipeline end to end and return its evidence bundle — the same code ' +
+      'path the deployed app uses. Unlike the atomic tools above, the tool sequence is ' +
+      'chosen by the workflow, not by you. Note this does NOT independently validate the ' +
+      'atomic tools: calling them yourself in some order exercises a different property. ' +
+      'Only summary_overview is implemented in Phase 0; the rest return an error naming ' +
+      'what is available.',
+    inputSchema: {
+      workflow: z
+        .enum([
+          'summary_overview',
+          'spending_analysis',
+          'investment_review',
+          'goal_progress',
+          'transaction_lookup',
+          'general_qa',
+        ])
+        .describe('Which pipeline to run.'),
+      from: z.string().optional().describe('Period start, YYYY-MM-DD. For period-scoped workflows.'),
+      to: z.string().optional().describe('Period end, YYYY-MM-DD.'),
+      accountIds,
+      annualSpendCents: cents('Overrides the profile target, in CENTS.').optional(),
+      multiple: z.number().optional().describe('FIRE multiple. Default 25.'),
+      withdrawalRate: z.number().optional().describe('Fraction, e.g. 0.04. Overrides multiple.'),
+    },
+  },
+  handler(
+    async (args: {
+      workflow: WorkflowName;
+      from?: string;
+      to?: string;
+      accountIds?: string[];
+      annualSpendCents?: number | string;
+      multiple?: number;
+      withdrawalRate?: number;
+    }) => {
+      const spend = toCents(args.annualSpendCents);
+      const params: WorkflowParams = {
+        ...(args.from && args.to ? { period: { from: args.from, to: args.to } } : {}),
+        ...(args.accountIds ? { accountIds: args.accountIds } : {}),
+        ...(spend !== undefined ? { annualSpendCents: spend } : {}),
+        ...(args.multiple !== undefined ? { multiple: args.multiple } : {}),
+        ...(args.withdrawalRate !== undefined ? { withdrawalRate: args.withdrawalRate } : {}),
+      };
+
+      const { bundle, limitations } = await runWorkflow(args.workflow, await session.ctx(), params);
+
+      return {
+        data: {
+          workflow: bundle.workflow,
+          pipeline: bundle.entries.map((e) => e.tool),
+          entries: bundle.entries,
+          limitations,
+        },
+        // The bundle's entries each carry their own provenance; this describes
+        // the run itself rather than any single figure.
+        provenance: {
+          source: 'compute' as const,
+          asOf: bundle.generatedAt,
+          computation: `Fixed ${bundle.workflow} pipeline: ${bundle.entries
+            .map((e) => e.tool)
+            .join(' → ')}.`,
+        },
+      };
+    },
+  ),
 );
 
 // --- User context (Postgres — no Plaid fetch triggered) ---------------------

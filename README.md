@@ -1,8 +1,11 @@
 # Personal Finance Guru
 
 An AI financial coach that narrates **only** figures produced by deterministic tools, each
-carrying its own provenance. See [CLAUDE.md](CLAUDE.md) for the full build spec — this README
-covers running what exists.
+carrying its own provenance.
+
+- [CLAUDE.md](CLAUDE.md) — the build spec: what we're building and why
+- [docs/STATE.md](docs/STATE.md) — where things stand, what's open, what's next
+- this README — how to run it
 
 **Status: Phase 0 complete. Checkpoint 1 passed — both parts, against the Plaid sandbox.**
 
@@ -135,6 +138,38 @@ tools when driven live, independent of the fixed pipeline in Part 1.
 
 Both paths agree on the figures, which is the result that matters: net worth −$40,452.32
 computed identically whether the pipeline or the model chose the call order.
+
+## Running a workflow
+
+Three ways, and they prove different things.
+
+**The executor directly** — a live fetch through the real pipeline:
+
+```bash
+npm run checkpoint1 -- --verbose
+```
+
+**On fixtures** — no Plaid, no database, runs in milliseconds:
+
+```bash
+npx vitest run packages/core/src/workflows/summaryOverview.test.ts
+```
+
+**Through MCP**, via the `runWorkflow` tool:
+
+```
+runWorkflow(workflow: "summary_overview")
+```
+
+That last one is the only non-atomic tool on the harness. Everything else exposes one `core`
+function; `runWorkflow` runs a whole pipeline and hands back the evidence bundle. It takes a
+workflow *name* rather than there being one tool per workflow, so the set of pipelines stays
+defined in `core` and cannot drift.
+
+Worth keeping straight: calling `listAccounts`, `getBalances`, `netWorth`, `assetAllocation`,
+`fireProgress` yourself in that order is **not** a workflow run. The output looks the same,
+but you chose the order — which is exactly the freedom a workflow exists to remove. That is
+why Checkpoint 1 has two parts, and why `runWorkflow` does not substitute for either.
 
 ## Notes on the money rules
 
