@@ -1,0 +1,19 @@
+{
+  "name": "@pfg/plaid",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pfg/core": "*",
+    "@pfg/db": "*",
+    "drizzle-orm": "^0.45.2",
+    "plaid": "^45.0.0"
+  }
+}

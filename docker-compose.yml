@@ -1,0 +1,24 @@
+# Local dev Postgres. Pinned to the Postgres 17 line to match what the Neon
+# project will run — keep these in lockstep when Neon is provisioned (§2).
+# Port 5433 so this does not collide with a natively-installed Postgres on 5432.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: pfg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pfg
+      POSTGRES_PASSWORD: pfg
+      POSTGRES_DB: pfg_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - pfg-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pfg -d pfg_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pfg-pgdata:

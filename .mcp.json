@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "pfg": {
+      "command": "npx",
+      "args": ["tsx", "apps/mcp/src/server.ts"],
+      "env": {}
+    }
+  }
+}

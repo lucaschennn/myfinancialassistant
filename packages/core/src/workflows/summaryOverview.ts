@@ -1,0 +1,64 @@
+/**
+ * `summary_overview` (§5): listAccounts → getBalances → netWorth →
+ * assetAllocation → fireProgress.
+ *
+ * The pipeline is fixed. The model does not choose which tools run or in what
+ * order — it only narrates what this produced. That is the property that makes
+ * "the AI never computes a number" (§0.1) enforceable rather than aspirational.
+ */
+
+import { EvidenceBuilder } from '../provenance.js';
+import { assetAllocation } from '../compute/assetAllocation.js';
+import { fireProgress } from '../compute/fireProgress.js';
+import { netWorth } from '../compute/netWorth.js';
+import { getBalances, listAccounts } from '../tools/aggregation.js';
+import { appendNetWorthSnapshot } from '../tools/aggregates.js';
+import type { Ctx } from '../context.js';
+import type { WorkflowParams, WorkflowRun } from './types.js';
+
+export async function summaryOverview(ctx: Ctx, params: WorkflowParams = {}): Promise<WorkflowRun> {
+  const evidence = new EvidenceBuilder('summary_overview', ctx.userId);
+  const limitations: string[] = [];
+
+  const accountParams = params.accountIds ? { accountIds: params.accountIds } : {};
+
+  evidence.add('listAccounts', {}, listAccounts(ctx));
+  evidence.add('getBalances', accountParams, getBalances(ctx, accountParams));
+
+  const netWorthResult = netWorth(ctx);
+  const netWorthData = evidence.add('netWorth', {}, netWorthResult);
+
+  evidence.add('assetAllocation', accountParams, assetAllocation(ctx, accountParams));
+
+  // fireProgress is the one step with a hard prerequisite: an annual spend
+  // target. A user who has not set one should still get the rest of their
+  // summary, with the omission stated rather than the request failing.
+  const fireParams = {
+    ...(params.annualSpendCents !== undefined ? { annualSpendCents: params.annualSpendCents } : {}),
+    ...(params.multiple !== undefined ? { multiple: params.multiple } : {}),
+    ...(params.withdrawalRate !== undefined ? { withdrawalRate: params.withdrawalRate } : {}),
+  };
+  try {
+    evidence.add('fireProgress', fireParams, await fireProgress(ctx, fireParams));
+  } catch (error) {
+    limitations.push(
+      'FIRE progress could not be calculated: ' +
+        (error instanceof Error ? error.message : String(error)),
+    );
+  }
+
+  // The only write in the pipeline, and it is a derived aggregate (§3 Tier 1).
+  // A failure here must not cost the user their answer.
+  if (ctx.db) {
+    try {
+      await appendNetWorthSnapshot(ctx, netWorthData);
+    } catch (error) {
+      limitations.push(
+        'Net worth history point was not saved: ' +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+
+  return { bundle: evidence.build(), limitations };
+}

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+out/
+
+# Secrets — never commit. See .env.example for the required variables.
+.env
+.env.*
+!.env.example
+
+# Local scratch
+*.log
+.DS_Store
+coverage/
+.vitest/
+.pgdata/
