@@ -13,12 +13,13 @@ import { fireProgress } from '../compute/fireProgress.js';
 import { netWorth } from '../compute/netWorth.js';
 import { getBalances, listAccounts } from '../tools/aggregation.js';
 import { appendNetWorthSnapshot } from '../tools/aggregates.js';
+import { NO_SPEND_TARGET, limitationFrom } from './shared.js';
 import type { Ctx } from '../context.js';
-import type { WorkflowParams, WorkflowRun } from './types.js';
+import type { Limitation, WorkflowParams, WorkflowRun } from './types.js';
 
 export async function summaryOverview(ctx: Ctx, params: WorkflowParams = {}): Promise<WorkflowRun> {
   const evidence = new EvidenceBuilder('summary_overview', ctx.userId);
-  const limitations: string[] = [];
+  const limitations: Limitation[] = [];
 
   const accountParams = params.accountIds ? { accountIds: params.accountIds } : {};
 
@@ -41,10 +42,7 @@ export async function summaryOverview(ctx: Ctx, params: WorkflowParams = {}): Pr
   try {
     evidence.add('fireProgress', fireParams, await fireProgress(ctx, fireParams));
   } catch (error) {
-    limitations.push(
-      'FIRE progress could not be calculated: ' +
-        (error instanceof Error ? error.message : String(error)),
-    );
+    limitations.push(limitationFrom('fireProgress', NO_SPEND_TARGET, error));
   }
 
   // The only write in the pipeline, and it is a derived aggregate (§3 Tier 1).
@@ -54,8 +52,12 @@ export async function summaryOverview(ctx: Ctx, params: WorkflowParams = {}): Pr
       await appendNetWorthSnapshot(ctx, netWorthData);
     } catch (error) {
       limitations.push(
-        'Net worth history point was not saved: ' +
-          (error instanceof Error ? error.message : String(error)),
+        limitationFrom(
+          'appendNetWorthSnapshot',
+          "Today's net worth was not saved to your history, so this point may be missing " +
+            'from the trend later. The figures above are unaffected.',
+          error,
+        ),
       );
     }
   }

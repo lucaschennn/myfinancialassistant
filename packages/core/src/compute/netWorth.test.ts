@@ -26,6 +26,17 @@ describe('netWorth', () => {
     expect(savings?.contributionCents).toBe(1_800_000n);
   });
 
+  it('also carries the balance as owed, so a debt is sayable without a minus sign', () => {
+    const { data } = netWorth(ctx());
+    const card = data.lines.find((l) => l.accountId === 'acct_card');
+
+    // The attribution guard matches on signed cents. If the bundle only held
+    // -231020, "your card balance is $2,310.20" — the way anyone would actually
+    // say it — would be rejected as an unattributable figure.
+    expect(card?.balanceCents).toBe(231_020n);
+    expect(card?.contributionCents).toBe(-231_020n);
+  });
+
   it('includes illiquid assets — that is what separates it from fireProgress', () => {
     const { data } = netWorth(ctx());
     expect(data.lines.map((l) => l.accountId)).toContain('acct_house');

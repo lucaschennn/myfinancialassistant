@@ -69,7 +69,10 @@ describe('summary_overview workflow', () => {
       'netWorth',
       'assetAllocation',
     ]);
-    expect(limitations.join(' ')).toMatch(/FIRE progress could not be calculated/);
+    // The limitation names the step it belongs to, so a "why" card can label
+    // it rather than saying "not available" with no subject.
+    expect(limitations[0]?.tool).toBe('fireProgress');
+    expect(limitations[0]?.reason).toMatch(/target for your annual spending/i);
   });
 
   it('still produces a bundle for a user with nothing linked', async () => {
@@ -108,9 +111,12 @@ describe('summary_overview workflow', () => {
     expect(bundle.userId).toBe(TEST_USER_ID);
   });
 
-  it('rejects a workflow that has not been implemented yet', async () => {
-    await expect(runWorkflow('spending_analysis', ctx(), {})).rejects.toThrow(
-      /No workflow registered/,
-    );
+  it('rejects a name that is not a workflow at all', async () => {
+    // Phase 1 registered all six §5 workflows, so this no longer tests an
+    // unimplemented-but-valid intent — it tests the guard against a name the
+    // spec never defined, which is the case that must keep throwing.
+    await expect(
+      runWorkflow('transfer_money' as never, ctx(), {}),
+    ).rejects.toThrow(/No workflow registered/);
   });
 });

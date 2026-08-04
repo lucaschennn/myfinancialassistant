@@ -90,6 +90,16 @@ export {
   type SetGoalParams,
 } from './tools/userContext.js';
 
+// User store
+export {
+  resolveUser,
+  findUser,
+  claimSeededUser,
+  MissingAuthSubjectError,
+  type ResolveUserParams,
+  type ResolvedUser,
+} from './tools/users.js';
+
 // Derived aggregates
 export {
   appendNetWorthSnapshot,
@@ -125,12 +135,38 @@ export {
   selectTransactions,
 } from './compute/period.js';
 
+// Agent loop support (pure pieces — the model calls live in the app)
+export {
+  checkAttribution,
+  allowedFigures,
+  attributionFailureMessage,
+  type AttributionReport,
+  type AttributionViolation,
+} from './agent/attribution.js';
+export {
+  JOLLY_SYSTEM_PROMPT,
+  evidencePayload,
+  synthesisUserTurn,
+  attributionRetryTurn,
+  type SynthesisPromptParams,
+} from './agent/prompt.js';
+export {
+  ROUTER_SCHEMA,
+  ROUTER_SYSTEM_PROMPT,
+  FALLBACK_DECISION,
+  resolvePeriod,
+  isRouterDecision,
+  type RouterDecision,
+  type RelativePeriod,
+} from './agent/router.js';
+
 // Workflows
 export {
   runWorkflow,
   summaryOverview,
   implementedWorkflows,
   UnknownWorkflowError,
+  type Limitation,
   type Workflow,
   type WorkflowName,
   type WorkflowParams,

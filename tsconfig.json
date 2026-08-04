@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
   "include": ["packages/**/*.ts", "apps/**/*.ts", "scripts/**/*.ts"],
-  "exclude": ["**/node_modules", "**/dist", "**/.next"]
+  // apps/web is React + JSX and needs the DOM lib and bundler resolution, none
+  // of which belong in a Node-targeted base config. It typechecks against its
+  // own tsconfig; `npm run typecheck` runs both.
+  "exclude": ["**/node_modules", "**/dist", "**/.next", "apps/web"]
 }

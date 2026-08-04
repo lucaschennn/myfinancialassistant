@@ -10,6 +10,17 @@ export interface NetWorthLine {
   type: AccountType;
   subtype: string | null;
   mask: string | null;
+  /**
+   * The balance as the institution reports it — always positive, and for a
+   * liability the amount owed.
+   *
+   * Redundant with `contributionCents` for assets, and deliberately so. A coach
+   * says "your student loan is $65,262", not "-$65,262", and the attribution
+   * guard only authorises figures the bundle literally contains. Without this
+   * field the natural phrasing of every debt reads as a §0.1 violation, and the
+   * model is pushed into writing minus signs into prose to get past the check.
+   */
+  balanceCents: Cents;
   /** Signed contribution to net worth: positive for assets, negative for debts. */
   contributionCents: Cents;
 }
@@ -61,6 +72,7 @@ export function netWorth(ctx: Ctx): ToolResult<NetWorthData> {
       type: account.type,
       subtype: account.subtype,
       mask: account.mask,
+      balanceCents: account.currentCents,
       contributionCents: isLiability ? -account.currentCents : account.currentCents,
     });
   }

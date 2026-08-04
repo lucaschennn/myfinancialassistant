@@ -209,6 +209,10 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   profile: one(userProfile, { fields: [users.id], references: [userProfile.userId] }),
 }));
 
+export const goalsRelations = relations(goals, ({ one }) => ({
+  user: one(users, { fields: [goals.userId], references: [users.id] }),
+}));
+
 export const plaidItemsRelations = relations(plaidItems, ({ one, many }) => ({
   user: one(users, { fields: [plaidItems.userId], references: [users.id] }),
   accounts: many(linkedAccounts),

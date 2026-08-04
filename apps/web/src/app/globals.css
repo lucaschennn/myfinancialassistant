@@ -1,0 +1,453 @@
+/*
+ * One small design system, no framework. The UI's job here is to make evidence
+ * legible — figures, their sources, and the gaps — so the palette stays quiet
+ * and the typography does the work.
+ */
+
+:root {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-raised: #1e222b;
+  --border: #2a2f3a;
+  --text: #e8eaed;
+  --text-muted: #9aa3b2;
+  --text-faint: #6b7482;
+
+  --accent: #7dd3a0;
+  --accent-dim: #2f6b4d;
+  --negative: #e88b8b;
+  --warn: #e0b877;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --border: #e2e5ea;
+    --text: #14171c;
+    --text-muted: #5a6472;
+    --text-faint: #8b94a3;
+    --accent: #1f7a4d;
+    --accent-dim: #a8dcc0;
+    --negative: #b3352f;
+    --warn: #8a6412;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+/* --- layout ------------------------------------------------------------- */
+
+.shell {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 0 26px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brand span {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* --- cards -------------------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card-sub {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* --- figures ------------------------------------------------------------ */
+
+.figure {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.figure.negative {
+  color: var(--negative);
+}
+
+.figure-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.figure-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+}
+
+.figure-sm {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- bars --------------------------------------------------------------- */
+
+.bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+/* --- tables ------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  font-weight: 500;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+td.num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.faint {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+/* --- buttons ------------------------------------------------------------ */
+
+button,
+.btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+button:hover:not(:disabled),
+.btn:hover {
+  border-color: var(--text-faint);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary,
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1115;
+  font-weight: 600;
+}
+
+/* --- evidence / "why" cards --------------------------------------------- */
+
+.evidence {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 8px;
+  background: var(--bg);
+}
+
+.evidence summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evidence summary::-webkit-details-marker {
+  display: none;
+}
+
+.evidence summary::before {
+  content: '▸';
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.evidence[open] summary::before {
+  content: '▾';
+}
+
+.evidence-body {
+  padding: 4px 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.evidence-step {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.evidence-step:last-child {
+  border-bottom: none;
+}
+
+.tool-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+/* A step that could not run. Same treatment as a real step so it reads as part
+   of the pipeline, but coloured as a gap rather than a result. */
+.tool-name.missing {
+  color: var(--warn);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.prov {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.prov-source {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  margin-right: 6px;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--warn);
+  margin-top: 4px;
+}
+
+/* --- chat --------------------------------------------------------------- */
+
+.turn {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.turn:last-child {
+  border-bottom: none;
+}
+
+.turn-role {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.turn-body p {
+  margin: 0 0 10px;
+}
+
+.turn-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Rendered model output. Figures are bolded often enough that `strong` is
+   effectively a numeric emphasis — tabular numerals keep them from jittering. */
+.turn-body strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-body code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.md-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.md-list li {
+  margin-bottom: 5px;
+}
+
+.md-list li::marker {
+  color: var(--text-faint);
+}
+
+.md-heading {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.turn-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.composer input {
+  flex: 1;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.composer input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* --- misc --------------------------------------------------------------- */
+
+.disclaimer {
+  font-size: 12px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 26px;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.centered {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.error {
+  color: var(--negative);
+  font-size: 13px;
+}

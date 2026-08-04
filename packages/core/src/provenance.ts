@@ -100,12 +100,37 @@ export interface ReasoningTrace {
   }>;
 }
 
+/**
+ * Params can themselves be money. `fireProgress` takes `annualSpendCents`, and
+ * that is the user's own target — a financial figure, not a tool name. Copying
+ * params verbatim into the trace would put it in `insight_log` and make the
+ * audit log the PII store §3 says it must not become.
+ *
+ * Redacted by suffix, matching the convention `humanize()` relies on: any key
+ * ending in `Cents` is money by construction.
+ */
+function redactParams(params: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (key.endsWith('Cents')) {
+      // Record that the parameter was supplied, never what it was — the shape
+      // of the reasoning survives, the figure does not.
+      out[key] = '[redacted]';
+    } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      out[key] = redactParams(value as Record<string, unknown>);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 export function toReasoningTrace(bundle: EvidenceBundle): ReasoningTrace {
   return {
     workflow: bundle.workflow,
     toolCalls: bundle.entries.map(({ tool, params, provenance }) => ({
       tool,
-      params,
+      params: redactParams(params),
       provenance,
     })),
   };

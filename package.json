@@ -10,7 +10,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm run typecheck -w @pfg/web",
+    "dev": "npm run dev -w @pfg/web",
+    "build": "npm run build -w @pfg/web",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:up": "docker compose up -d",
@@ -22,7 +24,8 @@
     "mcp": "npm run start -w @pfg/mcp",
     "link:sandbox": "tsx scripts/link-sandbox-item.ts",
     "set:profile": "tsx scripts/set-profile.ts",
-    "checkpoint1": "tsx scripts/checkpoint1-summary.ts"
+    "checkpoint1": "tsx scripts/checkpoint1-summary.ts",
+    "agent:smoke": "tsx scripts/agent-smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

@@ -1,14 +1,24 @@
 import type { Ctx } from '../context.js';
+import { generalQa } from './generalQa.js';
+import { goalProgress } from './goalProgress.js';
+import { investmentReview } from './investmentReview.js';
+import { spendingAnalysis } from './spendingAnalysis.js';
 import { summaryOverview } from './summaryOverview.js';
+import { transactionLookup } from './transactionLookup.js';
 import type { Workflow, WorkflowName, WorkflowParams, WorkflowRun } from './types.js';
 
 /**
- * The workflow registry (§5). Phase 0 implements `summary_overview` only; the
- * remaining intents land in Phase 1. Registering them as they are built keeps
- * the router honest — it can only route to something that exists.
+ * The workflow registry (§5). All six intents are implemented as of Phase 1 —
+ * the router can now route to any of them and reach a real pipeline rather
+ * than degrading to the summary.
  */
-const WORKFLOWS: Partial<Record<WorkflowName, Workflow>> = {
+const WORKFLOWS: Record<WorkflowName, Workflow> = {
   summary_overview: summaryOverview,
+  spending_analysis: spendingAnalysis,
+  investment_review: investmentReview,
+  goal_progress: goalProgress,
+  transaction_lookup: transactionLookup,
+  general_qa: generalQa,
 };
 
 export class UnknownWorkflowError extends Error {
@@ -34,5 +44,12 @@ export function implementedWorkflows(): WorkflowName[] {
   return Object.keys(WORKFLOWS) as WorkflowName[];
 }
 
-export { summaryOverview };
-export type { Workflow, WorkflowName, WorkflowParams, WorkflowRun } from './types.js';
+export {
+  summaryOverview,
+  spendingAnalysis,
+  investmentReview,
+  goalProgress,
+  transactionLookup,
+  generalQa,
+};
+export type { Limitation, Workflow, WorkflowName, WorkflowParams, WorkflowRun } from './types.js';
