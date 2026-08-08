@@ -26,6 +26,7 @@ const TOOL_LABELS: Record<string, string> = {
   savingsRate: 'Computed savings rate',
   spendingByCategory: 'Grouped spending by category',
   getUserContext: 'Read your profile and goals',
+  getNetWorthHistory: 'Read stored net worth snapshots',
 };
 
 const SOURCE_LABELS: Record<Provenance['source'], string> = {
@@ -61,9 +62,16 @@ function ProvenanceDetail({ provenance }: { provenance: Provenance }) {
       {/*
         §6 honest-about-gaps. Notes are the place a figure admits it is less
         complete than it looks, so they are rendered, never collapsed away.
+
+        They carry an explicit "Caveat" label rather than relying on colour.
+        Previously the only thing distinguishing a caveat from the method above
+        it was 12px gold text, which is both the least accessible way to encode
+        meaning and easy to read as decoration — on the most important sentence
+        on the card.
       */}
       {provenance.notes?.map((note, i) => (
         <div className="note" key={i}>
+          <span className="note-tag">Caveat</span>
           {note}
         </div>
       ))}
@@ -104,7 +112,10 @@ export function LimitationStep({ limitation }: { limitation: Limitation }) {
           <span className="muted">About this answer</span>
         )}
       </div>
-      <div className="note">{limitation.reason}</div>
+      <div className="note">
+        <span className="note-tag">Gap</span>
+        {limitation.reason}
+      </div>
     </div>
   );
 }

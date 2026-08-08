@@ -7,6 +7,7 @@
 
 import type { Database } from '@pfg/db';
 import type { SessionSnapshot } from './snapshot.js';
+import type { TraceRecorder } from './trace.js';
 
 export interface Ctx {
   userId: string;
@@ -16,6 +17,12 @@ export interface Ctx {
    */
   snapshot?: SessionSnapshot;
   db?: Database;
+  /**
+   * Collects what this request cost in network calls (§0.2). Optional
+   * throughout: a tool that is handed no recorder simply does not report, so
+   * tests and the MCP harness need no trace plumbing to run.
+   */
+  trace?: TraceRecorder;
 }
 
 export class MissingSnapshotError extends Error {

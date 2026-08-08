@@ -20,9 +20,10 @@ import {
 import { ConnectBank } from './ConnectBank';
 import { EvidenceCard, FigureEvidence, LimitationStep } from './Evidence';
 import { SpendTarget } from './SpendTarget';
+import { NetworkPanel } from './NetworkPanel';
 import { Chat } from './Chat';
 import { requireUser } from '@/server/auth';
-import { hasLinkedItems, requireSnapshotCtx } from '@/server/session';
+import { hasLinkedItems, requireSnapshotCtx, traceRender } from '@/server/session';
 
 // Live Plaid fetch on every render (§7 refetch-per-turn) — nothing to cache.
 export const dynamic = 'force-dynamic';
@@ -52,9 +53,12 @@ export default async function DashboardPage() {
     );
   }
 
+  const started = Date.now();
+
   // The fixed five-tool pipeline (§5). The page does not choose tools.
   const ctx = await requireSnapshotCtx({ includeTransactions: false });
   const { bundle, limitations } = await runWorkflow('summary_overview', ctx, {});
+  traceRender(ctx, 'GET / (summary dashboard)', started);
 
   const accounts = entryData<ListAccountsData>(bundle, 'listAccounts');
   const nw = entryData<NetWorthData>(bundle, 'netWorth');
@@ -208,6 +212,14 @@ export default async function DashboardPage() {
         limitations={limitations}
         label="How this whole summary was worked out"
       />
+
+      {/*
+        What the page itself cost (§0.2). Built after the workflow has run so it
+        includes the derived-aggregate write, and rendered beside the evidence
+        card because "how this was worked out" and "what that took" are two
+        halves of the same question.
+      */}
+      <NetworkPanel trace={ctx.trace.build()} label="What this page cost" />
 
       <Chat />
     </div>

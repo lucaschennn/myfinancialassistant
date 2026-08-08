@@ -27,6 +27,7 @@ import {
   type EvidenceBundle,
   type Limitation,
   type RouterDecision,
+  type TraceRecorder,
   type WorkflowName,
   type WorkflowParams,
   FALLBACK_DECISION,
@@ -102,12 +103,16 @@ export interface AgentResult {
  * correct broad answer beats a 500, and it matches what the router is told to
  * do with a vague question anyway.
  */
-export async function route(question: string, history: ChatTurn[] = []): Promise<{
+export async function route(
+  question: string,
+  history: ChatTurn[] = [],
+  trace?: TraceRecorder,
+): Promise<{
   decision: RouterDecision;
   routedBy: 'model' | 'fallback';
 }> {
-  try {
-    const response = await anthropic().messages.create({
+  const call = () =>
+    anthropic().messages.create({
       model: ROUTER_MODEL,
       max_tokens: 256,
       system: ROUTER_SYSTEM_PROMPT,
@@ -121,6 +126,11 @@ export async function route(question: string, history: ChatTurn[] = []): Promise
         { role: 'user' as const, content: question },
       ],
     });
+
+  try {
+    const response = trace
+      ? await trace.track('anthropic', ROUTER_MODEL, call, () => ({ detail: 'intent routing' }))
+      : await call();
 
     const block = response.content.find((b) => b.type === 'text');
     if (!block || block.type !== 'text') return { decision: FALLBACK_DECISION, routedBy: 'fallback' };
@@ -164,6 +174,7 @@ async function synthesise(
   bundle: EvidenceBundle,
   limitations: Limitation[],
   history: ChatTurn[],
+  trace?: TraceRecorder,
 ): Promise<{ answer: string; warnings: string[]; outcome: AttributionOutcome }> {
   const warnings: string[] = [];
 
@@ -175,13 +186,24 @@ async function synthesise(
   for (let attempt = 0; attempt < 2; attempt += 1) {
     // Streamed to avoid a serverless HTTP timeout on a long generation (§2);
     // buffered here so the guard sees the whole answer before the user does.
-    const stream = anthropic().messages.stream({
-      model: SYNTHESIS_MODEL,
-      max_tokens: 4096,
-      system: JOLLY_SYSTEM_PROMPT,
-      messages,
-    });
-    const message = await stream.finalMessage();
+    const call = () =>
+      anthropic()
+        .messages.stream({
+          model: SYNTHESIS_MODEL,
+          max_tokens: 4096,
+          system: JOLLY_SYSTEM_PROMPT,
+          messages,
+        })
+        .finalMessage();
+
+    // The retry is disclosed rather than folded into one entry: §0.1's guard
+    // can double the cost of a turn, and a user looking at what their question
+    // cost should see that happen.
+    const message = trace
+      ? await trace.track('anthropic', SYNTHESIS_MODEL, call, () => ({
+          detail: attempt === 0 ? 'synthesis' : 'synthesis retry (attribution guard)',
+        }))
+      : await call();
 
     const text = message.content
       .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -233,7 +255,7 @@ export async function runAgentTurn(
   question: string,
   history: ChatTurn[] = [],
 ): Promise<AgentResult> {
-  const { decision, routedBy } = await route(question, history);
+  const { decision, routedBy } = await route(question, history, ctx.trace);
   const params = toWorkflowParams(decision);
 
   let workflow = decision.workflow;
@@ -257,6 +279,7 @@ export async function runAgentTurn(
     run.bundle,
     run.limitations,
     history,
+    ctx.trace,
   );
 
   return {

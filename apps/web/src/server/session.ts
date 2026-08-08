@@ -16,7 +16,7 @@
  * garbage — which is the whole of the "session end: discard" step.
  */
 
-import type { Ctx, SessionSnapshot } from '@pfg/core';
+import { type Ctx, type SessionSnapshot, TraceRecorder } from '@pfg/core';
 import type { Database } from '@pfg/db';
 import { fetchSnapshot } from '@pfg/plaid';
 import { plaidItems } from '@pfg/db';
@@ -27,6 +27,7 @@ export interface SnapshotCtx extends Ctx {
   userId: string;
   db: Database;
   snapshot: SessionSnapshot;
+  trace: TraceRecorder;
 }
 
 export interface BuildSnapshotOptions {
@@ -34,6 +35,8 @@ export interface BuildSnapshotOptions {
   transactionDays?: number;
   includeTransactions?: boolean;
   includeHoldings?: boolean;
+  /** Pass an existing recorder to fold this fetch into a wider trace. */
+  trace?: TraceRecorder;
 }
 
 /**
@@ -49,15 +52,41 @@ export async function requireSnapshotCtx(
   const user = await requireUser();
   const db = getWebDb();
 
+  // One recorder per request, on the same lifecycle as the snapshot itself: it
+  // is built here, read once when the response is assembled, and garbage after
+  // (§0.2). Nothing about it is persisted.
+  const trace = options.trace ?? new TraceRecorder();
+
   const snapshot = await fetchSnapshot({
     userId: user.id,
     db,
     transactionDays: options.transactionDays ?? 90,
     includeTransactions: options.includeTransactions ?? true,
     includeHoldings: options.includeHoldings ?? true,
+    trace,
   });
 
-  return { userId: user.id, db, snapshot };
+  return { userId: user.id, db, snapshot, trace };
+}
+
+/**
+ * Record the server-render span for a page.
+ *
+ * Server components have no `/api/...` request behind them, so without this a
+ * trace would list Plaid and Postgres calls with nothing saying what asked for
+ * them. Call it last: its duration is meant to cover the calls above it, and
+ * the panel reports wall-clock rather than a sum, so the overlap is not
+ * double-counted.
+ */
+export function traceRender(ctx: SnapshotCtx, label: string, startedMs: number): void {
+  ctx.trace.add({
+    scope: 'internal',
+    label,
+    startedAt: new Date(startedMs).toISOString(),
+    durationMs: Date.now() - startedMs,
+    ok: true,
+    detail: 'server render',
+  });
 }
 
 /**

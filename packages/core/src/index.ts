@@ -50,6 +50,15 @@ export {
   gapNotes,
 } from './snapshot.js';
 
+// Network trace
+export {
+  type NetworkTrace,
+  type TraceEntry,
+  type TraceScope,
+  EMPTY_TRACE,
+  TraceRecorder,
+} from './trace.js';
+
 // Context
 export {
   type Ctx,

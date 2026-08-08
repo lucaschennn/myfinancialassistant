@@ -7,7 +7,7 @@
 ## 0. Core Principles (do not violate)
 
 1. **The AI never computes a number.** Deterministic tools compute every figure. The model only *narrates, prioritizes, and contextualizes* over tool output. If you catch the model summing transactions or deriving a FIRE number in prose, that's a bug.
-2. **Every figure carries provenance.** Tool results return `{ data, provenance }`. Provenance = which accounts, as-of timestamp, and the computation applied. Transparency is a structural property, not a prompt instruction.
+2. **Every figure carries provenance.** Tool results return `{ data, provenance }`. Provenance = which accounts, as-of timestamp, and the computation applied. Transparency is a structural property, not a prompt instruction. **This extends to the work itself, not only the figures:** because §7 refetches live from Plaid on every turn rather than caching, each screen and each answer has a real network cost, and that cost is disclosed where it is incurred rather than hidden behind a spinner. A user should be able to see which of our routes ran and which external services were called on their behalf. See §8 Phase 1.5.
 3. **Money is integer cents** (`BIGINT` in Postgres, `bigint`/`Decimal` in code). Never floats. Ever.
 4. **Plaid is the system of record; we never mirror its financial data.** The app is a stateless compute-and-narration layer. Financial data (balances, holdings, transactions) is fetched live from Plaid and held **only ephemerally** — in memory for the life of a request/session — then discarded. Postgres never stores a copy of Plaid's financial datasets. This is a deliberate data-minimization stance: it keeps financial PII out of our durable store, shrinking breach blast radius and compliance scope.
 5. **One tool implementation, two front doors.** A shared `core` package is consumed by (a) the app's server-side agent loop and (b) a thin MCP wrapper for Claude Code testing. No duplicated logic.
@@ -203,8 +203,80 @@ Scope: Clerk auth + user store; per-user Plaid Link flow in the UI; app-side age
 
 **Checkpoint 2 acceptance:** A new user can sign up, link a sandbox institution, see a transparent summary dashboard, and ask follow-up questions in chat — each answer showing traceable evidence. Deployed to Vercel + managed Postgres. **This is the demoable product.**
 
+### Phase 1.5 — Surface Area & Network Transparency → **Checkpoint 2.5: Nothing Hidden**
+
+The Checkpoint 2 UI is a readout of the backend, not a designed product: a single column of
+equally-weighted cards, no navigation, and a large amount of computed and stored data that
+never reaches the screen. This phase closes that gap. It is presentation-layer work — the
+evidence bundle already carries almost everything a richer view needs — with one genuinely new
+concept (the network trace, below).
+
+**Sequencing:** independent of the Checkpoint 2 deploy; either can go first. Deploying first is
+the lower-risk order, because a real end-to-end run tells you which of these surfaces actually
+matter before you build them.
+
+**A. Network transparency panels.** Every part of the UI whose render or action costs network
+work exposes what that work was: our own API route, and each external service called behind it.
+This is not a loading state — the point is not to soften the wait but to make the cost legible.
+§7 accepted per-turn Plaid latency as the price of holding no financial PII at rest; a user who
+pays that price should be able to see what they are paying for.
+
+Shape: a `NetworkTrace` — an ordered list of `{ scope: 'internal' | 'plaid' | 'anthropic',
+label, startedAt, durationMs, ok, count? }` — carried alongside the session snapshot and the
+evidence bundle, and rendered next to the thing that caused it (the dashboard's own panel, a
+chat turn's panel).
+
+Rules, all of which follow from §9:
+- **Names, counts, durations, and outcomes only.** Never payloads, never tokens, never account
+  identifiers. The panel exists to expose *that* a call happened, not what was in it.
+- **Recorded at the boundary that makes the call** — `packages/plaid`, the Anthropic client in
+  the agent loop, the route handler — never inferred in the UI. A trace the UI guesses at is a
+  claim about the system rather than a record of it, which is the failure mode §0.2 exists to
+  prevent.
+- **Never persisted.** Same lifecycle as the snapshot: request-scoped, discarded at the end,
+  regenerated per turn like the evidence bundle. It does not go into `insight_log`.
+- Model *names* and Plaid *endpoints* are disclosed; the fact that a retry happened is
+  disclosed too, since §0.1's attribution guard can double the synthesis cost.
+
+**B. Surface what is already computed.** A substantial amount of work is done on every request
+and thrown away unseen. Nothing here needs new computation or new persistence:
+
+| Already available | Where it lives | Shown today |
+|---|---|---|
+| Net worth over time | `networth_snapshots`, written every summary run since Phase 0 | No |
+| Individual holdings and securities | fetched every request, feed `assetAllocation` only | No |
+| Transactions + the fetched window dates | fetched on every chat turn (90 days) | No |
+| Per-item fetch failures (`gaps`) | snapshot, surfaced only as provenance note prose | Barely |
+| Goals | `goals` table; `setGoal`/`deleteGoal` exist in `core` | No |
+| Profile notes | `user_profile.notes_json`; `addNote` exists in `core` | No |
+| Cash flow, savings rate, spending by category | computed in workflows | Chat only |
+
+`period_summaries` is the one table with neither a writer nor a reader; wiring it is optional
+here and belongs with trend work rather than being built speculatively.
+
+**C. Information architecture.** One page currently holds dashboard, chat, and settings, which
+leaves no room for any of the above. Introduce real routes:
+- `/` — the summary dashboard, with hierarchy: net worth is not the same weight as the account
+  list.
+- `/history` — net worth over time from `networth_snapshots`, with its own "why" card.
+- `/accounts` and `/accounts/[id]` — per-account detail: balances, holdings, recent
+  transactions, which institution and item, and any gap affecting it.
+- `/goals` — goal setting and removal, the annual spend target, and profile notes. This is
+  where the Checkpoint 2 spend-target form graduates to once it has company.
+
+**D. Evidence rendering.** Provenance is this product's whole thesis and currently renders as a
+collapsed `<details>` with unlabelled 12px gold text doing the most important work on the card.
+Give caveats an explicit label and affordance, distinguish "method" from "gap" beyond colour
+alone, and treat the "why" card as a feature rather than a debug toggle.
+
+**Checkpoint 2.5 acceptance:** every network call the app makes on a user's behalf is visible
+in the UI at the point it is incurred, with no payload data exposed; net worth history, holdings,
+transactions, and goals are all reachable; and no new financial data is persisted to do any of it.
+
 ### Phase 2 — AI Sophistication, Identity & Transparency
-Scope: formalized identity/system prompt; hardened constrained-workflow router; deepened evidence rendering (every figure traceable to source in the UI); `insight_log` wired for transparency + eval; proactive insights and goal tracking over time; model routing + cost controls; **SnapTrade adapter** behind the aggregator interface for brokerage depth.
+Scope: formalized identity/system prompt; hardened constrained-workflow router; deepened evidence rendering (every figure traceable to source in the UI); `insight_log` wired for transparency + eval; proactive insights and goal tracking over time; model routing + cost controls; **`riskTolerance` finally used** — allocation versus the user's stated tolerance in `investment_review`, and tone in the system prompt, with the UI input for it added at the same time; **SnapTrade adapter** behind the aggregator interface for brokerage depth.
+
+*Not in this phase, despite looking adjacent:* `annualIncomeCents` as a `savingsRate` fallback. That is deterministic compute with no model in it (§4), and belongs with the next change to `savingsRate` rather than in a phase about the model. See `docs/STATE.md` known gaps.
 
 ---
 

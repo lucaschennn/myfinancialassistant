@@ -5,7 +5,7 @@
  * read which items a user has linked and to decrypt their access tokens.
  */
 
-import type { SessionSnapshot, SnapshotAccount, SnapshotGap, SnapshotHolding, SnapshotSecurity, SnapshotTransaction } from '@pfg/core';
+import type { SessionSnapshot, SnapshotAccount, SnapshotGap, SnapshotHolding, SnapshotSecurity, SnapshotTransaction, TraceRecorder } from '@pfg/core';
 import { type Database, decryptToken, plaidItems } from '@pfg/db';
 import { and, eq } from 'drizzle-orm';
 import type { PlaidApi } from 'plaid';
@@ -32,6 +32,11 @@ export interface FetchSnapshotOptions {
   includeHoldings?: boolean;
   /** Overrides "today" for deterministic tests. */
   now?: Date;
+  /**
+   * Records what this fetch cost (§0.2). Optional — omitting it changes
+   * nothing about the data returned.
+   */
+  trace?: TraceRecorder;
 }
 
 function isoDate(date: Date): string {
@@ -54,12 +59,29 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
     includeTransactions = true,
     includeHoldings = true,
     now = new Date(),
+    trace,
   } = options;
 
-  const items = await db
-    .select()
-    .from(plaidItems)
-    .where(and(eq(plaidItems.userId, userId), eq(plaidItems.status, 'active')));
+  // Report a call, or run it bare when no recorder was supplied. Keeping this
+  // local means every call site below reads the same whether tracing is on or
+  // off, rather than each one branching.
+  const timed = <T>(
+    scope: 'plaid' | 'db',
+    label: string,
+    fn: () => Promise<T>,
+    describe?: (value: T) => { count?: number; detail?: string },
+  ): Promise<T> => (trace ? trace.track(scope, label, fn, describe) : fn());
+
+  const items = await timed(
+    'db',
+    'read linked items',
+    () =>
+      db
+        .select()
+        .from(plaidItems)
+        .where(and(eq(plaidItems.userId, userId), eq(plaidItems.status, 'active'))),
+    (rows) => ({ count: rows.length }),
+  );
 
   const accounts: SnapshotAccount[] = [];
   const holdings: SnapshotHolding[] = [];
@@ -79,7 +101,12 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
     // --- Balances: the one call everything else depends on ------------------
     let itemAccounts: SnapshotAccount[] = [];
     try {
-      const response = await plaid.accountsBalanceGet({ access_token: accessToken });
+      const response = await timed(
+        'plaid',
+        '/accounts/balance/get',
+        () => plaid.accountsBalanceGet({ access_token: accessToken }),
+        (r) => ({ count: r.data.accounts.length, detail: institutionName ?? undefined }),
+      );
       itemAccounts = response.data.accounts.map((a) =>
         normalizeAccount(a, { itemId: item.plaidItemId, institutionName }),
       );
@@ -101,7 +128,12 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
     );
     if (includeHoldings && hasInvestmentAccounts) {
       try {
-        const response = await plaid.investmentsHoldingsGet({ access_token: accessToken });
+        const response = await timed(
+          'plaid',
+          '/investments/holdings/get',
+          () => plaid.investmentsHoldingsGet({ access_token: accessToken }),
+          (r) => ({ count: r.data.holdings.length, detail: institutionName ?? undefined }),
+        );
         holdings.push(...response.data.holdings.map(normalizeHolding));
         for (const security of response.data.securities) {
           if (seenSecurityIds.has(security.security_id)) continue;
@@ -117,7 +149,9 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
     // --- Transactions -------------------------------------------------------
     if (includeTransactions) {
       try {
-        transactions.push(...(await fetchAllTransactions(plaid, accessToken, from, to)));
+        transactions.push(
+          ...(await fetchAllTransactions(plaid, accessToken, from, to, timed, institutionName)),
+        );
       } catch (error) {
         const { message, code } = describePlaidError(error);
         gaps.push({ ...gapBase, dataset: 'transactions', reason: message, ...(code ? { plaidErrorCode: code } : {}) });
@@ -137,22 +171,43 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
   };
 }
 
+/** Every page is recorded separately — pagination is a real cost the user pays. */
+type Timed = <T>(
+  scope: 'plaid' | 'db',
+  label: string,
+  fn: () => Promise<T>,
+  describe?: (value: T) => { count?: number; detail?: string },
+) => Promise<T>;
+
 async function fetchAllTransactions(
   plaid: PlaidApi,
   accessToken: string,
   from: string,
   to: string,
+  timed: Timed,
+  institutionName: string | null,
 ): Promise<SnapshotTransaction[]> {
   const collected: SnapshotTransaction[] = [];
   let offset = 0;
 
   for (let page = 0; page < MAX_TRANSACTION_PAGES; page += 1) {
-    const response = await plaid.transactionsGet({
-      access_token: accessToken,
-      start_date: from,
-      end_date: to,
-      options: { count: TRANSACTIONS_PAGE_SIZE, offset },
-    });
+    const response = await timed(
+      'plaid',
+      '/transactions/get',
+      () =>
+        plaid.transactionsGet({
+          access_token: accessToken,
+          start_date: from,
+          end_date: to,
+          options: { count: TRANSACTIONS_PAGE_SIZE, offset },
+        }),
+      (r) => ({
+        count: r.data.transactions.length,
+        detail: [institutionName, page > 0 ? `page ${page + 1}` : null]
+          .filter(Boolean)
+          .join(', ') || undefined,
+      }),
+    );
     collected.push(...response.data.transactions.map(normalizeTransaction));
     offset += response.data.transactions.length;
 

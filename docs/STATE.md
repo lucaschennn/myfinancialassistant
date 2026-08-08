@@ -247,10 +247,30 @@ identifier, or its own tool name repeated.
   them as profile fields, and `setProfile` writes them, but no compute function reads either —
   `savingsRate` takes income from `cashFlow`'s measured transaction inflow, not the profile.
   They do reach the evidence bundle through `getUserContext` (in `goal_progress` and
-  `general_qa` only) and `humanize()` formats them, so Jolly may narrate them as context. The
-  obvious place income would earn its keep is as a `savingsRate` fallback when a period records
-  no inflow — the tool's own gap note already says this usually means the paycheck lands in an
-  unlinked account — flagged as provenance-stated rather than measured. Not built.
+  `general_qa` only) and `humanize()` formats them, so Jolly may narrate them as context.
+
+  **There is deliberately no UI to set either one.** `/goals` displays them read-only with a
+  caveat saying so; `npm run set:profile -- --income 120000 --risk moderate` and the MCP
+  `setProfile` tool are the only ways to write them. That asymmetry is a decision, not an
+  oversight: adding inputs for two fields that feed no calculation would dress up decoration as
+  settings. **Add the input for each one only when it starts doing work** — which is the whole
+  point of the two items below.
+
+  > If you are here because `/goals` looks half-finished: it is not. Do not "fix" it by adding
+  > the two inputs. Do one of the following first, then add the matching input with it.
+
+  **Income → a §4 compute gap, not a Phase 2 item.** Wire it as the `savingsRate` fallback:
+  when a period records zero inflow, fall back to the stored annual figure prorated to the
+  period, flagged in provenance as profile-stated rather than measured. `savingsRate`'s own gap
+  note already says a zero-income period usually means the paycheck lands in an unlinked
+  account, so the fallback is answering a question the tool is already asking. This is
+  deterministic compute with no model involved — filing it under Phase 2's "AI Sophistication"
+  would bury a small compute fix in a phase about the model. Do it the next time `savingsRate`
+  is open.
+
+  **Risk tolerance → Phase 2, with the identity work.** Its use is narration: allocation versus
+  stated tolerance in `investment_review`, and tone in the system prompt. That belongs with the
+  formalized identity and deepened evidence rendering, not on its own.
 - **`insight_log` has no writer.** Deliberate: §8 puts the wiring in Phase 2. `toReasoningTrace()`
   is built and tested against the invariant that matters (no financial values survive).
 - **Provenance notes are free text and contain account names and masks** (e.g. "Plaid Mortgage
@@ -288,6 +308,77 @@ follow-ups with traceable evidence, **deployed**."* Everything but the last word
 
 Clerk is **done** (development instance; `pk_test_`/`sk_test_` work on localhost and on Vercel
 preview URLs, so a production instance is only needed once a custom domain is attached).
+
+### Phase 1.5 is built
+
+All four workstreams landed. 176 tests, typecheck clean, production build clean.
+
+**A. Network trace.** `TraceRecorder` in `packages/core/src/trace.ts`, threaded through
+`Ctx.trace` (optional everywhere, so tests and the MCP harness need no plumbing). Instrumented
+at the boundaries that make the calls: the Plaid client, the Anthropic router and synthesis
+calls, the `plaid_items` read, and the net-worth-snapshot write. Rendered by `NetworkPanel` on
+the dashboard, both accounts pages, and each chat answer.
+
+Verified against the live sandbox rather than assumed — one dashboard render:
+
+```
+total wall-clock: 2911ms across 6 calls
+  [db      ] read linked items                3ms  ok  1
+  [internal] GET / (summary dashboard)     2911ms  ok     server render
+  [plaid   ] /accounts/balance/get         1821ms  ok  12  First Platypus Bank
+  [plaid   ] /investments/holdings/get      439ms  ok  13  First Platypus Bank
+  [plaid   ] /transactions/get              640ms  ok  49  First Platypus Bank
+  [db      ] append net worth snapshot         4ms  ok
+```
+
+Leak checks on the serialised trace all came back false: no `access-` token, no account id, no
+`Cents` figure. A test pins that an error message never reaches the trace — Plaid errors can
+quote the request that produced them, so a failed call reports `failed` and the human reason
+travels as a snapshot gap instead.
+
+`totalMs` is **wall-clock, not a sum of durations.** Overlapping calls summed would overstate
+what the user actually waited for, and a transparency panel that inflates the number it exists
+to disclose is worse than no panel.
+
+> **Constraint worth remembering:** `NetworkPanel` is rendered by `Chat.tsx`, a client
+> component, so it may only take **type** imports from `@pfg/core`. A runtime import there is
+> followed into the browser bundle, and `@pfg/core`'s entry reaches `@pfg/db` → `postgres` →
+> `net`. The build fails with `Module not found: Can't resolve 'net'`, which reads like a
+> bundler problem and is actually this. Display labels therefore live in the component, not in
+> `core`. This cost one build failure to discover; there is a comment at both ends.
+
+**B/C. Surface area and routes.** `/history` (net worth chart + full table from
+`networth_snapshots`), `/accounts` (balances by institution, with `snapshot.gaps` promoted from
+prose-in-a-note to its own card), `/accounts/[id]` (holdings, securities, and the transaction
+window — the three datasets that were fetched and discarded unseen on every request), and
+`/goals` (goals, notes, and the spend target). `deleteGoal` and `addNote` have callers for the
+first time since Phase 0.
+
+The `/history` chart is hand-rolled inline SVG, one series, no charting library and no client
+JS: point tooltips are native SVG `<title>` on generous invisible hit circles. The y-range
+always includes zero — with a negative net worth, an axis that floated would hide whether the
+user is above water at all.
+
+**D. Evidence rendering.** Caveats and gaps now carry explicit `CAVEAT` / `GAP` tags instead of
+relying on 12px gold text to be self-evident. Colour was doing all the work on the most
+important sentence on the card.
+
+### Phase 1.5 as originally specified
+
+CLAUDE.md §8 gained a **Phase 1.5 — Surface Area & Network Transparency**, covering the four
+gaps in the Checkpoint 2 UI: no disclosure of network cost, a large amount of computed and
+stored data that never reaches the screen (net worth history most notably — it has been
+accumulating since Phase 0), no information architecture beyond a single page, and evidence
+rendering that buries the product's own thesis in a collapsed `<details>`.
+
+The one new concept is the **network trace**: a request-scoped record of which of our routes ran
+and which external services were called, rendered next to the thing that caused it. It carries
+names, counts, durations, and outcomes — never payloads — and is never persisted, on the same
+lifecycle as the session snapshot. §0.2 was widened to cover it: transparency applies to the
+work performed, not only to the figures.
+
+Sequencing is deliberately left open. Deploying first is lower risk, because the acceptance run
+will show which surfaces actually matter before any of them get built.
 
 ### Before deploy, worth doing
 

@@ -138,6 +138,35 @@ keeps saying FIRE progress is unavailable. Setting it in the UI cannot make that
 which is why it is the documented path. The script remains useful for seeding the sandbox user
 that `agent:smoke` and the MCP harness run as.
 
+### What the UI shows
+
+Four pages, reachable from the top nav:
+
+| Page | What it shows |
+|---|---|
+| `/` | Net worth, FIRE progress, asset allocation, connected accounts, and chat |
+| `/history` | Net worth over time from `networth_snapshots`, charted, plus every point |
+| `/accounts` | Balances by institution, and any Plaid dataset that failed to load |
+| `/accounts/[id]` | One account: balances, holdings and securities, and its transactions |
+| `/goals` | Goals, notes, the spend target, and what income/risk actually do |
+
+Every figure carries a "why" card with its provenance — source, computation, and any caveats,
+which are tagged rather than merely coloured.
+
+### Seeing what a page costs
+
+§7 refetches from Plaid on every render and every chat turn rather than caching, so each page
+load makes real external calls. Every page that does so carries a **"What this cost"** panel
+listing them: which of our routes ran, which external services were called, how long each took,
+how many items came back, and whether it worked.
+
+It reports names, counts, durations, and outcomes — never payloads, never tokens, never account
+identifiers — and the trace is built per request and never stored. `/history` and `/goals` read
+Postgres only, so they have no panel at all; a page that costs nothing should not imply it did.
+
+The total is wall-clock rather than the sum of call durations. Overlapping calls summed would
+overstate what you actually waited for.
+
 ## Verify
 
 ```bash

@@ -49,7 +49,14 @@ export async function summaryOverview(ctx: Ctx, params: WorkflowParams = {}): Pr
   // A failure here must not cost the user their answer.
   if (ctx.db) {
     try {
-      await appendNetWorthSnapshot(ctx, netWorthData);
+      // Traced because it is the one thing in this pipeline that WRITES. A user
+      // reading what a page cost should see that a derived aggregate was
+      // persisted, not just that data was read (§0.2, §3 Tier 1).
+      await (ctx.trace
+        ? ctx.trace.track('db', 'append net worth snapshot', () =>
+            appendNetWorthSnapshot(ctx, netWorthData),
+          )
+        : appendNetWorthSnapshot(ctx, netWorthData));
     } catch (error) {
       limitations.push(
         limitationFrom(

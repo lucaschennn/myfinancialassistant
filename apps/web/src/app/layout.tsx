@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 // Clerk 7 replaced <SignedIn>/<SignedOut> with a single <Show when=…>.
 import { ClerkProvider, Show, UserButton } from '@clerk/nextjs';
+import { Nav } from './Nav';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,7 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 Jolly <span>personal finance guru</span>
               </div>
               <Show when="signed-in">
-                <UserButton />
+                <div className="topbar-right">
+                  <Nav />
+                  <UserButton />
+                </div>
               </Show>
             </header>
             {children}

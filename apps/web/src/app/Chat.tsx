@@ -10,7 +10,8 @@
  */
 
 import { useRef, useState } from 'react';
-import type { Limitation, Provenance } from '@pfg/core';
+import type { Limitation, NetworkTrace, Provenance } from '@pfg/core';
+import { NetworkPanel } from './NetworkPanel';
 import { RichText } from './RichText';
 
 interface WireEntry {
@@ -32,6 +33,7 @@ interface Answer {
   limitations: Limitation[];
   attributionWarnings: string[];
   attributionOutcome: 'clean' | 'retried' | 'withheld';
+  trace: NetworkTrace;
 }
 
 interface Turn {
@@ -107,7 +109,10 @@ function EvidenceCard({ answer }: { answer: Answer }) {
                 <span className="muted">About this answer</span>
               )}
             </div>
-            <div className="note">{limitation.reason}</div>
+            <div className="note">
+              <span className="note-tag">Gap</span>
+              {limitation.reason}
+            </div>
           </div>
         ))}
         {bundle.entries.map((entry, i) => (
@@ -135,6 +140,7 @@ function EvidenceCard({ answer }: { answer: Answer }) {
             </div>
             {entry.provenance.notes?.map((note, n) => (
               <div className="note" key={n}>
+                <span className="note-tag">Caveat</span>
                 {note}
               </div>
             ))}
@@ -217,7 +223,15 @@ export function Chat() {
           <div className="turn-body">
             <RichText>{turn.content}</RichText>
           </div>
-          {turn.evidence && <EvidenceCard answer={turn.evidence} />}
+          {turn.evidence && (
+            <>
+              <EvidenceCard answer={turn.evidence} />
+              {/* What the answer cost, next to how it was worked out (§0.2). */}
+              {turn.evidence.trace && (
+                <NetworkPanel trace={turn.evidence.trace} label="What this answer cost" />
+              )}
+            </>
+          )}
         </div>
       ))}
 

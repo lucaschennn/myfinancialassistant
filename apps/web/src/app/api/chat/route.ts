@@ -6,7 +6,7 @@
  * live on every turn and never persisted (§5).
  */
 
-import { type EvidenceBundle, toJson } from '@pfg/core';
+import { type EvidenceBundle, TraceRecorder, toJson } from '@pfg/core';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { type ChatTurn, runAgentTurn } from '@/server/agent';
@@ -41,12 +41,30 @@ export async function POST(request: Request) {
 
     const { question, history = [] } = parsed.data;
 
+    // One recorder spans the whole turn — the Plaid fetch, the router call, and
+    // synthesis — so the panel shows the turn's real cost rather than one leg
+    // of it (§0.2).
+    const trace = new TraceRecorder();
+    const started = Date.now();
+
     // Transactions are only needed by the spending and lookup workflows, but
     // the router has not run yet — and a second Plaid round trip would cost
     // more than the transactions call itself. Fetch once, fully.
-    const ctx = await requireSnapshotCtx({ transactionDays: 90 });
+    const ctx = await requireSnapshotCtx({ transactionDays: 90, trace });
 
     const result = await runAgentTurn(ctx, question, history as ChatTurn[]);
+
+    // The route's own span, recorded last so it can report the total. Its
+    // duration overlaps every call above; the panel reports wall-clock, not a
+    // sum, so this does not double-count.
+    trace.add({
+      scope: 'internal',
+      label: 'POST /api/chat',
+      startedAt: new Date(started).toISOString(),
+      durationMs: Date.now() - started,
+      ok: true,
+      detail: `${result.workflow} workflow`,
+    });
 
     // toJson handles the bigint cents the bundle carries (§0.3).
     return new NextResponse(
@@ -58,6 +76,7 @@ export async function POST(request: Request) {
         attributionWarnings: result.attributionWarnings,
         attributionOutcome: result.attributionOutcome,
         routedBy: result.routedBy,
+        trace: trace.build(),
       }),
       { headers: { 'Content-Type': 'application/json' } },
     );
