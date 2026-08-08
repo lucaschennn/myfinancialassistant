@@ -117,6 +117,27 @@ export interface Period {
 const iso = (date: Date): string => date.toISOString().slice(0, 10);
 
 /**
+ * `now` moved back `months`, clamped to the last valid day of the target month.
+ *
+ * The clamp is the whole point. `Date.UTC(2026, 1, 31)` — 31 February — does not
+ * throw; it rolls forward to 3 March. So "the last 6 months" asked on 31 August
+ * would start on 3 March: four days short, still labelled six months, and with
+ * nothing in the provenance to say so (§0.2). The compute layer's own truncation
+ * notes cannot catch it either — they only fire when a range exceeds the fetched
+ * snapshot window, not when the range handed to them was wrong to begin with.
+ *
+ * Clamping gives 31 August → 28 February, the same convention `last_month`
+ * already gets for free from its day-0 trick.
+ */
+function monthsBack(now: Date, months: number): Date {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  // Day 0 of the month after the target is the target's own last day.
+  const lastDayOfTarget = new Date(Date.UTC(year, month - months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month - months, Math.min(now.getUTCDate(), lastDayOfTarget)));
+}
+
+/**
  * Turn a relative phrase into the explicit range `core/compute` requires.
  *
  * Built in UTC throughout. A boundary that shifts with the server's timezone
@@ -141,16 +162,16 @@ export function resolvePeriod(relative: RelativePeriod, now = new Date()): Perio
     }
 
     case 'last_3_months':
-      return { from: iso(new Date(Date.UTC(year, month - 3, now.getUTCDate()))), to: today };
+      return { from: iso(monthsBack(now, 3)), to: today };
 
     case 'last_6_months':
-      return { from: iso(new Date(Date.UTC(year, month - 6, now.getUTCDate()))), to: today };
+      return { from: iso(monthsBack(now, 6)), to: today };
 
     case 'year_to_date':
       return { from: iso(new Date(Date.UTC(year, 0, 1))), to: today };
 
     case 'last_12_months':
-      return { from: iso(new Date(Date.UTC(year - 1, month, now.getUTCDate()))), to: today };
+      return { from: iso(monthsBack(now, 12)), to: today };
   }
 }
 

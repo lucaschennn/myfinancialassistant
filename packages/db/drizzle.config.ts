@@ -1,16 +1,15 @@
 import { defineConfig } from 'drizzle-kit';
-import { loadEnv } from './src/env.js';
-
-// Not `dotenv/config`: drizzle-kit runs with cwd set to packages/db, where
-// there is no .env. See src/env.ts.
-loadEnv();
+import { directConnectionString } from './src/env.js';
 
 export default defineConfig({
   schema: './src/schema.ts',
   out: './migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? '',
+    // Schema work (studio, push) wants the direct connection for the same
+    // reason migrations do. `directConnectionString()` loads .env itself —
+    // drizzle-kit runs with cwd set to packages/db, where there is no .env.
+    url: directConnectionString() ?? '',
   },
   strict: true,
   verbose: true,

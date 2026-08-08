@@ -3,13 +3,58 @@
 Living handoff notes. [CLAUDE.md](../CLAUDE.md) is the spec (what we're building and why);
 [README.md](../README.md) is how to run it. This file is where things stand and what's open.
 
-Last updated at the end of the Phase 1 build (auth, Plaid Link UI, agent loop, all six
-workflows, and the dashboard/chat UI landed). **Not deployed, and not yet run end to end as a
-real signed-up user** — those two are what stand between here and Checkpoint 2.
+Last updated after a pre-deploy review pass (three independent reviewers over docs, code, and
+deploy/security readiness — all three voted GO-WITH-FIXES; the fixes are below). **Not
+deployed, and not yet run end to end as a real signed-up user** — those two are what stand
+between here and Checkpoint 2.
 
-166 tests, typecheck clean, production build clean, and all six workflows answering clean
+168 tests, typecheck clean, production build clean, and all six workflows answering clean
 against the live Plaid sandbox. Three defects were found by using the §0.1 guard in anger —
 see *The guard's first findings* below.
+
+---
+
+## The pre-deploy review pass
+
+Three fixes landed, in ascending order of how long they had been wrong.
+
+**1. Rolling windows silently lost days.** `resolvePeriod` built `last_3/6/12_months` with
+`Date.UTC(year, month - n, now.getUTCDate())`. Asking for six months on 31 August requests
+31 February, which `Date.UTC` does not reject — it rolls forward to 3 March. The window came
+back four days short, still labelled six months, and with **nothing in the provenance saying
+so**: `period.ts`'s truncation notes only fire when a range exceeds the *fetched* snapshot
+window, never when the range handed to them was wrong to begin with. That is a §0.2 violation
+producing quietly wrong spending and cash-flow figures on roughly a tenth of all days.
+
+`last_month` right below it was always correct, because its day-0 trick sidesteps the problem
+entirely. The rolling cases just never reused it. Now factored into `monthsBack()`, which
+clamps to the target month's last valid day.
+
+The existing test suite could not have caught this: it asserted only that ranges never run
+backwards, and a rolled-forward date still satisfies `from <= to`. Its own comment even said
+"the 31st is where naive date math breaks" — it checked the right dates for the wrong
+property. The new tests assert the boundary date itself.
+
+**2. Migrations had no way to reach an unpooled connection.** This file previously said
+migrations "should run against `DATABASE_URL_UNPOOLED`" — but the string appeared nowhere in
+the repo, so the instruction was unfollowable. Neon's Vercel integration injects a pgbouncer
+URL as `DATABASE_URL`; the postgres-js migrator takes a session-level advisory lock and issues
+multi-statement DDL, neither of which survives transaction pooling. `directConnectionString()`
+now prefers the unpooled variable and falls back, so local dev is untouched and the first Neon
+migration cannot silently go through the pooler. `db:migrate` prints which variable it used —
+the name, never the value.
+
+**3. There was no way for a real user to set a spend target.** `setProfile` was reachable only
+from `npm run set:profile` and the MCP harness, so every Clerk signup saw a permanently broken
+FIRE card. This was not a cosmetic gap: Checkpoint 2's acceptance text is *"a new user can sign
+up, link a sandbox institution, see a transparent summary dashboard"*, and that was false for
+anyone without `psql` access. `/api/profile` plus `SpendTarget.tsx` closes it, rendered inside
+the FIRE card itself so the fix appears where the limitation is explained rather than behind a
+settings page a new user would have to go find.
+
+The amount stays a **string** from the input through the request body to `dollarsToCents`.
+Parsing it into a number in the browser would put a float conversion outside the one function
+§0.3 permits to perform it.
 
 ---
 
@@ -196,7 +241,16 @@ identifier, or its own tool name repeated.
   matches it, producing an "X is not exported" error for a file that no longer exists.
 
 - **`deleteGoal` is not exposed over MCP** though it exists in `core`. An omission, not a
-  decision — the setters got wired and the deleter didn't.
+  decision — the setters got wired and the deleter didn't. It also has no test at any layer,
+  which is how it stayed invisible.
+- **`annualIncomeCents` and `riskTolerance` are stored but drive nothing.** CLAUDE.md §4 lists
+  them as profile fields, and `setProfile` writes them, but no compute function reads either —
+  `savingsRate` takes income from `cashFlow`'s measured transaction inflow, not the profile.
+  They do reach the evidence bundle through `getUserContext` (in `goal_progress` and
+  `general_qa` only) and `humanize()` formats them, so Jolly may narrate them as context. The
+  obvious place income would earn its keep is as a `savingsRate` fallback when a period records
+  no inflow — the tool's own gap note already says this usually means the paycheck lands in an
+  unlinked account — flagged as provenance-stated rather than measured. Not built.
 - **`insight_log` has no writer.** Deliberate: §8 puts the wiring in Phase 2. `toReasoningTrace()`
   is built and tested against the invariant that matters (no financial values survive).
 - **Provenance notes are free text and contain account names and masks** (e.g. "Plaid Mortgage
@@ -221,12 +275,16 @@ follow-ups with traceable evidence, **deployed**."* Everything but the last word
    credentials are auto-injected. Pick **Postgres 17** (matching `docker-compose.yml`) and the
    same region as the functions, since §7's refetch-per-turn already pays one Plaid round trip
    per turn without adding a cross-region DB hop.
-2. **Deploy to Vercel.** Migrations should run against `DATABASE_URL_UNPOOLED`; the app reads
-   the pooled `DATABASE_URL`. Generate a **fresh** `TOKEN_ENCRYPTION_KEY` for production rather
-   than reusing the dev one — Neon starts empty, so no token needs to decrypt across the
-   boundary.
+2. **Deploy to Vercel.** Migrations now prefer `DATABASE_URL_UNPOOLED` automatically and fall
+   back to `DATABASE_URL` (`packages/db/src/env.ts`), so this is no longer a step anyone has to
+   remember. Generate a **fresh** `TOKEN_ENCRYPTION_KEY` for production rather than reusing the
+   dev one — Neon starts empty, so no token needs to decrypt across the boundary.
 3. **End-to-end run as a brand-new user** — sign up, link First Platypus through the UI, set a
    spend target, ask follow-ups. This is the acceptance test, and it has not been done yet.
+   Step 3 is only performable at all as of the profile UI landing (below).
+4. **Confirm the Vercel plan honours `maxDuration = 120`** (`apps/web/src/app/api/chat/route.ts`).
+   A chat turn is a live Plaid fetch plus a Haiku call plus a Sonnet call, and an attribution
+   retry adds a *second* Sonnet call. Hobby caps conventional functions at 60s. Unverified.
 
 Clerk is **done** (development instance; `pk_test_`/`sk_test_` work on localhost and on Vercel
 preview URLs, so a production instance is only needed once a custom domain is attached).
@@ -241,6 +299,14 @@ preview URLs, so a production instance is only needed once a custom domain is at
 - **Decide on provenance notes containing account names and masks.** They already reach the
   browser in "why" cards. Harmless today; it should be a deliberate call before `insight_log`
   starts persisting traces, not something inherited by accident.
+- **`/api/plaid/webhook` does not exist.** `proxy.ts:20` allowlists it as a public route and
+  explains that it authenticates by signature — but no handler was ever written. §9's "Plaid
+  webhook signature verification" is therefore **not met**, not merely unverified: there is
+  nothing to verify. The practical consequence is that the app only learns an item has entered
+  `login_required` or `revoked` when the next live fetch fails and surfaces it as a snapshot
+  `gap`, which is acceptable for a sandbox demo but should be a stated deferral rather than an
+  accident. Either build the handler or drop the allowlist entry so the route table stops
+  implying one exists.
 
 ---
 

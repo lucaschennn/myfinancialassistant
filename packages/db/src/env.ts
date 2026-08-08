@@ -40,3 +40,22 @@ export function loadEnv(): string | null {
     dir = parent;
   }
 }
+
+/**
+ * The connection string for schema work — migrations and Drizzle Studio.
+ *
+ * Neon's Vercel integration injects two URLs. `DATABASE_URL` points at the
+ * pgbouncer pooler, which is what the app should use: serverless invocations are
+ * many, short, and would otherwise exhaust Postgres connection slots. Migrations
+ * want the opposite. The postgres-js migrator takes a session-level advisory
+ * lock and issues multi-statement DDL, and transaction-mode pooling preserves
+ * neither — so running migrations through the pooler hangs, or half-applies and
+ * leaves the schema in a state no one intended.
+ *
+ * Falling back to `DATABASE_URL` keeps local dev untouched: Docker Postgres has
+ * no pooler in front of it and never sets the unpooled variable.
+ */
+export function directConnectionString(): string | undefined {
+  loadEnv();
+  return process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+}

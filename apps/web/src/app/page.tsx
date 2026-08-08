@@ -19,6 +19,7 @@ import {
 } from '@pfg/core';
 import { ConnectBank } from './ConnectBank';
 import { EvidenceCard, FigureEvidence, LimitationStep } from './Evidence';
+import { SpendTarget } from './SpendTarget';
 import { Chat } from './Chat';
 import { requireUser } from '@/server/auth';
 import { hasLinkedItems, requireSnapshotCtx } from '@/server/session';
@@ -117,13 +118,16 @@ export default async function DashboardPage() {
             </div>
           </div>
           <FigureEvidence entry={findEntry('fireProgress')} />
+          <SpendTarget current={formatCents(fire.annualSpendCents)} />
         </div>
       ) : (
         <div className="card">
           <h2>Progress toward financial independence</h2>
           <p className="card-sub">
-            This needs a target annual spend on your profile before it can be worked out.
+            Tell Jolly roughly what you expect to spend in a year and this becomes a target
+            you can track. Nothing else on this page depends on it.
           </p>
+          <SpendTarget />
           {limitations.map((limitation, i) => (
             <LimitationStep limitation={limitation} key={i} />
           ))}

@@ -2,54 +2,61 @@
 
 Paste the block below into a fresh Claude Code session in this repo.
 
-Keep it current: once Phase 1 is underway, the "build in this order" list and the two
-up-front decisions will be stale. Rewrite them rather than leaving a confidently wrong
-prompt in place.
+Keep it current. This file has already gone stale once — it still said "Start Phase 1" after
+Phase 1 was built, and was only harmless because its first instruction is "read STATE.md."
+Rewrite it when the work it describes is done rather than leaving a confidently wrong prompt
+in place.
 
 ---
 
 ```
-Start Phase 1 of this build — the multi-user MVP, ending at Checkpoint 2 (§8).
+Take this build to Checkpoint 2 (§8) — deploy, then prove it works as a brand-new user.
 
 Before writing any code:
-1. Read docs/STATE.md. It has where Phase 0 landed, what is deliberately NOT built,
-   known gaps, and open decisions. CLAUDE.md is the spec and is already in your context.
-2. Verify the environment still works rather than assuming it: `npm run db:up`,
-   `npm run db:migrate`, `npm test`, and `npm run link:sandbox -- --show`. Tell me if
-   anything is off before building on it.
+1. Read docs/STATE.md. It has where things stand, what is deliberately NOT built, known gaps,
+   and open decisions. CLAUDE.md is the spec and is already in your context. Pay attention to
+   "What is left for Checkpoint 2" and "Before deploy, worth doing" — that is your scope.
+2. Verify the environment rather than assuming it: `npm run db:up`, `npm run db:migrate`,
+   `npm test`, `npm run typecheck`, and `npm run link:sandbox -- --show`. Tell me if anything
+   is off before building on it. Note that Docker Desktop is often not running on this machine
+   and 7 tests in packages/core/src/tools/users.test.ts need Postgres — if you see ECONNREFUSED
+   on :5433, that is the cause, not a regression.
 
-Two decisions I want to settle before you start:
+Phase 1 is functionally complete: Clerk auth, Plaid Link UI, the agent loop, all six workflows,
+the dashboard, chat, evidence cards, and the §0.1 attribution guard are all built and tested.
+Do not rebuild any of it. What remains is deployment and the acceptance run.
 
-- The `pfg` namespace (npm scope, Docker container, Postgres role, MCP server key) was
-  invented during scaffolding, not taken from the spec. Renaming is cheapest now, before
-  Neon and Vercel config reference it. Recommend keep or rename, and say what it costs.
-- I still need to create the Clerk and Neon accounts. Tell me exactly what to sign up for,
-  which keys you need, and where they go — I will do the signups and paste values into
-  .env myself. Never put real values in .env.example; it is the committed one.
+Work in this order, checking in with me between steps:
 
-Then build in this order, checking in with me between steps:
-
-1. Clerk auth + user store — everything else is user-scoped, so this comes first.
-2. Next.js app skeleton + real Plaid Link flow (§7.1), replacing scripts/link-sandbox-item.ts.
-3. Agent loop: intent router (Haiku) → workflow executor → synthesis (Sonnet). The executor
-   exists and is tested; wrap it. This is the first time a model is actually in the loop —
-   there is no synthesis code, no system prompt, and no Anthropic SDK in the repo today.
-4. The remaining five workflows. Mostly assembly: every compute function they need is built
-   and unit-tested. Register each in packages/core/src/workflows/index.ts as it lands.
-5. Dashboard, chat, and evidence "why" cards rendering the bundle.
+1. **I create the Neon project** through the Vercel Marketplace — tell me exactly what to pick
+   (Postgres version, region) and which env vars you need where. I do all signups and paste
+   values into .env myself. Never put real values in .env.example; it is the committed one.
+2. **Pre-deploy hygiene**, both listed in STATE.md: migrate off Clerk's deprecated
+   `createRouteMatcher`, and settle `/api/plaid/webhook` — it is allowlisted as a public route
+   in proxy.ts but no handler exists, so §9's webhook-signature item is currently not met.
+   Either write the handler or drop the allowlist entry; do not leave it implying a route.
+3. **Deploy to Vercel.** Confirm the plan actually honours `maxDuration = 120` on /api/chat
+   before assuming it — a retried synthesis makes that the longest path in the app. Generate a
+   fresh TOKEN_ENCRYPTION_KEY for production; do not reuse the dev one.
+4. **The acceptance run.** Sign up as a genuinely new user, link First Platypus through the UI,
+   set a spend target through the dashboard, and ask follow-ups. Every figure must trace to an
+   evidence card. This is the Checkpoint 2 gate, and it has never been done.
 
 Constraints from CLAUDE.md that are not negotiable — flag it if something forces a tradeoff
 against them rather than quietly working around it:
 
 - The AI never computes a number. Deterministic tools compute; the model narrates and
-  attributes. Catching the model doing arithmetic in prose is a bug, not a style issue.
-- Money is integer cents as bigint. dollarsToCents at the Plaid boundary is the only
-  function allowed to touch a float.
+  attributes. checkAttribution() enforces this; a figure it cannot match is a bug, not noise
+  to be tuned away.
+- Money is integer cents as bigint. dollarsToCents is the only function allowed to touch a
+  float, and it belongs on the server — do not parse an amount into a number in the browser.
 - No raw Plaid financial data at rest. Balances, holdings, and transactions live only in a
   request-scoped in-memory snapshot. Only derived aggregates persist.
 - Every DB query is scoped by ctx.userId, enforced in the core package.
 - Educational coach, not advisor. Explains and contextualises; never prescriptive.
 
-Add tests as you go — the compute suite is the correctness backbone and Phase 1 should not
-regress it. I handle all git commits myself; don't commit or offer to.
+Add tests as you go — the compute suite is the correctness backbone. Note that a passing suite
+is not proof of a correct assertion: the rolling-window date bug survived a test that checked
+those exact dates for the wrong property. I handle all git commits myself; don't commit or
+offer to.
 ```

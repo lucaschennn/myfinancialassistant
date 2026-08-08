@@ -44,6 +44,43 @@ describe('period resolution', () => {
     expect(resolvePeriod('year_to_date', NOW)).toEqual({ from: '2026-01-01', to: '2026-08-02' });
   });
 
+  it('clamps a rolling window to the target month rather than rolling it forward', () => {
+    // 31 August minus 6 months is 31 February, which Date.UTC does not reject —
+    // it rolls forward to 3 March, silently returning five months and four weeks
+    // under a "last 6 months" label. The whole failure is invisible to an
+    // ordering check, so it is asserted on the boundary date itself.
+    const augustThirtyFirst = new Date('2026-08-31T12:00:00.000Z');
+
+    expect(resolvePeriod('last_6_months', augustThirtyFirst)).toEqual({
+      from: '2026-02-28',
+      to: '2026-08-31',
+    });
+    expect(resolvePeriod('last_3_months', new Date('2026-05-31T12:00:00.000Z'))).toEqual({
+      from: '2026-02-28',
+      to: '2026-05-31',
+    });
+    // A short target month in a leap year clamps to the 29th, not the 28th.
+    expect(resolvePeriod('last_3_months', new Date('2028-05-31T12:00:00.000Z'))).toEqual({
+      from: '2028-02-29',
+      to: '2028-05-31',
+    });
+    // Going back a full year from 29 February lands in a year without one.
+    expect(resolvePeriod('last_12_months', new Date('2028-02-29T12:00:00.000Z'))).toEqual({
+      from: '2027-02-28',
+      to: '2028-02-29',
+    });
+  });
+
+  it('keeps the day of month whenever the target month is long enough', () => {
+    // The clamp must not fire when it is not needed — 31 December back three
+    // months is 30 September only because September is short, and back twelve
+    // months is 31 December exactly.
+    const newYearsEve = new Date('2026-12-31T12:00:00.000Z');
+
+    expect(resolvePeriod('last_3_months', newYearsEve).from).toBe('2026-09-30');
+    expect(resolvePeriod('last_12_months', newYearsEve).from).toBe('2025-12-31');
+  });
+
   it('never produces a range that runs backwards', () => {
     const periods = [
       'current_month',

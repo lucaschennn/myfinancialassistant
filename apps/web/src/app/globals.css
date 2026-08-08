@@ -400,13 +400,21 @@ button.primary,
   margin-bottom: 0;
 }
 
-.composer {
+.composer,
+.field-row {
   display: flex;
   gap: 10px;
   margin-top: 16px;
 }
 
-.composer input {
+/* Wraps so an error message can sit on its own line beneath the controls. */
+.field-row {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.composer input,
+.field-row input {
   flex: 1;
   font: inherit;
   font-size: 14px;
@@ -417,7 +425,8 @@ button.primary,
   color: var(--text);
 }
 
-.composer input:focus {
+.composer input:focus,
+.field-row input:focus {
   outline: none;
   border-color: var(--accent);
 }

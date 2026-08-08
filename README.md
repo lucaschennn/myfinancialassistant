@@ -126,19 +126,17 @@ links a different bank, which is the normal multi-item case.
 npm run dev       # http://localhost:3000 — needs the two Clerk keys
 ```
 
-Sign up, connect a bank (First Platypus is the sandbox default), then set a spend target for
-your **new** user id:
+Sign up, connect a bank (First Platypus is the sandbox default), then set your annual spend
+target in the FIRE card on the dashboard. That card is the only thing on the page that needs
+it; everything else renders without one.
 
-```bash
-docker compose exec -T postgres psql -U pfg -d pfg_dev \
-  -c "select id, email from users where auth_provider_id is not null;"
-
-npm run set:profile -- --user <that-uuid> --spend 60000 --income 120000 --risk moderate
-```
-
-Pass `--user` explicitly. Without it `set:profile` falls back to `MCP_DEV_USER_ID`, which
-points at the *sandbox* user — the script reports success while your dashboard keeps saying
-FIRE progress is unavailable.
+Your Clerk signup is a **different `users` row** from the sandbox user that `link:sandbox`
+creates, unless the email happens to match an unclaimed seeded row (`claimSeededUser`). So a
+profile set through `npm run set:profile` without `--user` lands on the sandbox user and does
+nothing for the account you are signed in as — the script reports success while the dashboard
+keeps saying FIRE progress is unavailable. Setting it in the UI cannot make that mistake,
+which is why it is the documented path. The script remains useful for seeding the sandbox user
+that `agent:smoke` and the MCP harness run as.
 
 ## Verify
 

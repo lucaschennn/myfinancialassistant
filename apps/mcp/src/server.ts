@@ -343,8 +343,7 @@ server.registerTool(
       'path the deployed app uses. Unlike the atomic tools above, the tool sequence is ' +
       'chosen by the workflow, not by you. Note this does NOT independently validate the ' +
       'atomic tools: calling them yourself in some order exercises a different property. ' +
-      'Only summary_overview is implemented in Phase 0; the rest return an error naming ' +
-      'what is available.',
+      'All six §5 workflows are registered.',
     inputSchema: {
       workflow: z
         .enum([
