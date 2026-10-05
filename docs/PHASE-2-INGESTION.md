@@ -304,6 +304,14 @@ packages/ingest/src/
   read.ts           → manual ledger → SourceResult
 ```
 
+> **Phase 3 seam, worth respecting now.** The Phase 3 playground
+> ([PHASE-3-PLAYGROUND.md](PHASE-3-PLAYGROUND.md) §7) runs every ingest stage up to the draft on
+> bytes held in memory, and must never persist. So keep **sniff, hash and the dedupe *check***
+> pure and separate from **persisting** the bytes and the `documents` row, even though
+> `upload.ts` calls them in sequence. Likewise make the transcription prompt and model
+> parameters of `pdf/transcribe.ts` with today's values as defaults. Both are small now and
+> awkward to retrofit. Building the playground itself is not Phase 2 work.
+
 ### 3.1 `DocumentStore`
 
 ```ts

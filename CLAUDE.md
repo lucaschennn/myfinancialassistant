@@ -2,7 +2,7 @@
 
 > A multi-user app where an AI interfaces with a user's real financial data — from an aggregator (Plaid) or from the user's own statements and exports — plus additional context, to deliver **transparent, grounded** overviews and guidance. This document is written for Claude Code to build from. Build in the phases defined below; do not skip checkpoints.
 >
-> **Phase 2 is document ingestion; deployment moved to Phase 4.** See §8 for why. `docs/STATE.md` is where things actually stand; `docs/PHASE-2-INGESTION.md` is the buildable detail for the current phase.
+> **Phase 2 is document ingestion; Phase 3 is the developer playground; deployment moved to Phase 4.** See §8 for why. `docs/STATE.md` is where things actually stand; `docs/PHASE-2-INGESTION.md` is the buildable detail for the current phase and `docs/PHASE-3-PLAYGROUND.md` for the next. `docs/how-jolly-works.html` is the visual guide.
 
 ---
 
@@ -16,7 +16,7 @@
    **The corollary, added in Phase 2:** a dataset with *no* external system of record has to be stored by us or it does not exist. A CSV export or a PDF statement the user uploads is authoritative precisely because they handed it over; there is nothing to refetch it from. So manually-sourced financial data **is** persisted — the original document and the ledger derived from it. This is not a relaxation of the principle, it is the same principle applied to a different fact pattern, and the test for which regime applies is mechanical: *can we get this back from somewhere else on demand?* If yes, do not keep it. If no, keep it, encrypt it, and let the user delete it.
 
    The two regimes must stay **visibly** distinct rather than blurring into "we store some financial data now." Every account, balance, holding, and transaction carries its `source`, every figure's provenance names the sources behind it, and the UI says which is which. See §7 and §3.
-5. **One tool implementation, two front doors.** A shared `core` package is consumed by (a) the app's server-side agent loop and (b) a thin MCP wrapper for Claude Code testing. No duplicated logic.
+5. **One tool implementation, two front doors.** A shared `core` package is consumed by (a) the app's server-side agent loop and (b) a thin MCP wrapper for Claude Code testing. No duplicated logic. The Phase 3 playground is a third consumer of the same `core` and the same tool catalog, not a reimplementation. Anything it needs to vary becomes a parameter of the production function with today's value as the default.
 6. **Constrained workflows.** Each user intent maps to a fixed pipeline of tool calls. The model's freedom is in narration, not in which numbers exist. This is what makes processing predictable *and* auditable.
 7. **Educational coach, not licensed advisor.** The guru explains and contextualizes; it does not issue prescriptive directives. Framing and disclaimers reflect this.
 8. **Extraction is transcription, not computation.** §0.1 forbids the model from *deriving* a figure. Reading a figure off a bank statement is a different act, and Phase 2 permits it under a guard as strict as the one §0.1 gets: the model may only emit the **verbatim string** it claims to have read, never a parsed number; a deterministic function converts that string to cents; the string must be found in the document's own extracted text or the row is rejected as hallucinated; and nothing enters the ledger until a human has confirmed it. A number the model invented and a number it transcribed must not be indistinguishable downstream. See §7.
@@ -56,6 +56,8 @@ Postgres ── tokens, user context, ──────────────
 **Sources are pluggable, and the snapshot is the merge point.** Every compute function in §4 and every workflow in §5 reads the merged snapshot and does not know or care which source an account came from — that is the seam that lets a user with no Plaid connection at all get the same dashboard, and the same seam the deferred SnapTrade adapter slots into. What a compute function *does* see is each row's `source`, which it uses for provenance only, never for arithmetic.
 
 **MCP path:** thin server exposing the **atomic `core` tools** (`listAccounts`, `getBalances`, `netWorth`, `fireProgress`, etc. — not the workflow pipelines), authenticated with a dev token, for interactive testing in Claude Code. This is the Checkpoint 0 harness. In this path, Claude Code (as the MCP client) decides which tools to call and in what order based on the prompt — that's fine for a local dev/testing harness, but it means the MCP path does **not** exercise the same constrained, deterministic workflow pipeline (§5) that the deployed app uses. The `summary_overview` workflow's fixed pipeline logic must be validated on its own (unit/integration test calling the workflow executor directly), not inferred from MCP session behavior.
+
+**Playground path (Phase 3):** `/playground` in the web app, gated by `PLAYGROUND_ENABLED`. It drives the same stages as the agent loop through `/api/playground/*`, one stage at a time or all together, with per-run config overrides that the production loop never accepts. It reads; it does not write financial data. See `docs/PHASE-3-PLAYGROUND.md`.
 
 ---
 
@@ -259,7 +261,7 @@ Never store bank credentials — ever. Only the encrypted Plaid token, and the d
 
 ## 8. Phases & Checkpoints
 
-Build strictly in order. **Phase N ends in Checkpoint N** — the numbers match by construction. The riskiest unknowns, each validated at a checkpoint: **can we get clean data in** (0), **does the whole loop work for a real user** (1/1.5), **can it run on the author's own data rather than a sandbox fiction** (2), **is the guidance good** (3, judged against that real data), and **does it all survive deployment** (4).
+Build strictly in order. **Phase N ends in Checkpoint N** — the numbers match by construction. The riskiest unknowns, each validated at a checkpoint: **can we get clean data in** (0), **does the whole loop work for a real user** (1/1.5), **can it run on the author's own data rather than a sandbox fiction** (2), **can every part be seen and tested on its own, and is the guidance good** (3, the playground, judged against that real data), and **does it all survive deployment** (4).
 
 > **Renumbered.** Checkpoints were originally numbered one ahead of their phases (Phase 0 → Checkpoint 1, and so on), and Phase 3 had none. Older commits and notes use the old numbers: old Checkpoint 1 = **0**, 2 = **1**, 2.5 = **1.5**, 3 = **2**. Checkpoint 4 is unchanged. `npm run checkpoint1` is now `npm run checkpoint0`.
 
@@ -367,10 +369,25 @@ This phase is therefore the one that turns the demo into something its author ca
 
 The "every Plaid item disconnected" clause is the point of the checkpoint: a manual user must be a first-class user, not a degraded one.
 
-### Phase 3 — AI Sophistication, Identity & Transparency → **Checkpoint 3: (not yet defined)**
-Scope: formalized identity/system prompt; hardened constrained-workflow router; deepened evidence rendering (every figure traceable to source in the UI); `insight_log` wired for transparency + eval; proactive insights and goal tracking over time; model routing + cost controls; **`riskTolerance` finally used** — allocation versus the user's stated tolerance in `investment_review`, and tone in the system prompt, with the UI input for it added at the same time; **SnapTrade adapter** behind the source interface Phase 2 introduces.
+### Phase 3 — The Playground, and the AI Work Done With It → **Checkpoint 3: Every Stage Visible, Every Stage Testable**
 
-Deliberately after Phase 2: tuning narration and adding proactive insights against sandbox numbers optimizes against fiction. Judgements about whether guidance is *good* want the author's own data underneath them.
+Buildable spec: **`docs/PHASE-3-PLAYGROUND.md`**.
+
+**The playground is the centrepiece of this phase.** The app shows the trace *for the user's question*. The playground shows the trace *for the system itself*: a separate developer area at `/playground` where one question can be followed through every stage (snapshot → router → params → workflow → evidence → synthesis → guard → answer), and any stage can be lifted out, given hand-edited input, run with changed knobs, and run alone. It covers:
+- **The lifecycle**, run all at once or stage by stage, with every intermediate inspectable, the exact prompts sent to each model, rejected drafts that production discards, and token usage per call.
+- **Cross-cuts:** the router alone, the snapshot alone, any of the six workflows picked directly, and each step's params, data and provenance shown as it passes along.
+- **Experimentation** on what is hard-coded today: router and Jolly prompts, models, token limits, history windows, the retry message, `now` for date resolution, the snapshot window, FIRE params, the transcription prompt and CSV conventions. Workflow pipelines, the router's enum and the guards are *shown* but not editable.
+- **A notebook** in which every aggregation tool and compute function can be run individually with documentation and a schema-driven form, showing raw cents, provenance and the `humanize()`d form side by side.
+- **The ingestion lane:** a document through sniff, hash, extraction, detection, transcription, `checkTranscription()` and draft. It ends with "how Jolly reads it": the draft is merged as a synthetic source and run through any workflow. It **never commits**.
+- **A guard bench** and a **routing suite** that put numbers on the guard's and the router's behaviour.
+
+Four rules keep it from undermining what it shows (spec §0): **overrides are per-run and never reach `/api/chat`**; **the server only trusts a snapshot it fetched in the same request**, and anything sent back by the browser is labelled synthetic; **playground runs never write** (no net-worth points, no ledger rows, no `insight_log`); and **no guard can be switched off**. It is gated by `PLAYGROUND_ENABLED`, off in production, and shows only the signed-in user's own data.
+
+**The AI-sophistication work stays in this phase and is done *through* the playground:** formalized identity/system prompt, iterated as experiments and promoted by commit; a hardened router, measured by the routing suite; `insight_log` wired for production turns, with the playground as its first reader; proactive insights and goal tracking over time; model routing + cost controls, measured by per-stage token usage; **`riskTolerance` finally used** (allocation versus stated tolerance in `investment_review`, tone in the system prompt, and its UI input added at the same time); **SnapTrade adapter** behind the Phase 2 source interface (not a Checkpoint 3 prerequisite, and a candidate to move to its own phase).
+
+Deliberately after Phase 2: tuning narration and adding proactive insights against sandbox numbers optimizes against fiction. Judgements about whether guidance is *good* want the author's own data underneath them, and the ingestion lane has nothing to show until ingestion exists.
+
+**Checkpoint 3 acceptance** (full list in the spec, §11): with the gate off, every playground route 404s; a default-config run produces the same workflow and a deep-equal evidence bundle to `/api/chat`; every stage runs alone with only the network calls it should make; every catalog tool runs from the notebook and the MCP server derives its tools from the same catalog; a prompt edit changes routing but a prompt *instructing arithmetic* still ends in a visible rejected draft and a withheld answer; the fixture documents traverse the whole ingestion lane, including a scanned-PDF rejection and a planted figure dropped by `checkTranscription()`; and afterwards nothing new is at rest: no net-worth point, no ledger row, no stored file, nothing in browser storage. All of this is checked in `psql`, the store directory and devtools.
 
 *Not in this phase, despite looking adjacent:* `annualIncomeCents` as a `savingsRate` fallback. That is deterministic compute with no model in it (§4), and belongs with the next change to `savingsRate` rather than in a phase about the model. See `docs/STATE.md` known gaps.
 
@@ -406,6 +423,13 @@ Scope and prerequisites:
 - **User-deletable**, bytes and derived ledger both, with the choice between them made explicit (§3).
 - **Filename and mime type are attacker-controlled**: validate mime by content sniff rather than extension, cap byte size, and never use an uploaded filename as a storage path.
 - Chat history minimized and user-deletable (assistant turns can contain derived financial figures).
+
+**The playground (Phase 3)** exposes internals by design, so its limits are part of the checklist:
+- **Off unless `PLAYGROUND_ENABLED=true`**, checked in every `/api/playground/*` handler and not only in the page. Off in production.
+- **Own data only.** No impersonation or admin view; a client-supplied snapshot has its `userId` overwritten server-side.
+- **Never persists a run.** No snapshot, bundle, draft or extracted text in `localStorage`, on the server, or in `insight_log`; no `networth_snapshots` write; no `DocumentStore` write for a dropped-in file. Only prompt/knob experiments may be saved, and they hold no financial data.
+- **Cannot weaken production.** `/api/chat` ignores any config in its body; guards cannot be disabled in a lifecycle run; prompts reach production only by commit.
+- **Spends money on request**, so model calls are rate-limited per user and every call is in the trace with its token counts.
 - Secrets never in the repo; `.env` for dev, secret manager for deploy.
 - (Developer action item) Confirm employer outside-activity/IP policy before real (non-sandbox) data. **Note that Phase 2 brings the author's real financial documents into the repo's local storage** — this item stops being hypothetical there, and is worth settling before that upload rather than after.
 
@@ -424,3 +448,9 @@ Scope and prerequisites:
 - **Model-authored *arithmetic* during extraction.** The extractor transcribes strings. If a statement's stated total disagrees with the sum of its parts, that is surfaced as a discrepancy for the user to resolve — never silently reconciled, and never fixed by asking the model which number it prefers.
 - **A category mapping table.** §4 uses Plaid's `personal_finance_category` verbatim. Manual rows without a category stay `UNCATEGORIZED`; inventing a taxonomy for imports would create a second, divergent one.
 - **OFX / QFX parsing.** Structured and tempting, but CSV plus PDF covers what institutions actually hand a person, and a third format is a third parser to keep correct.
+
+**Non-goals specific to the playground (Phase 3):**
+- **A user-facing feature.** It is a developer tool, gated and off in production.
+- **A runtime prompt or config store.** Production behaviour changes only through a reviewed commit, so the playground offers "copy as patch", never "apply".
+- **Editing workflow pipelines or the router's enum at runtime.** A pipeline is code; experiment by running tools individually.
+- **Committing a draft from the ingestion lane.** §0.8's human review at `/import/[documentId]` stays the only path into the ledger.

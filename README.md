@@ -8,6 +8,9 @@ carrying its own provenance.
 - [docs/how-jolly-works.html](docs/how-jolly-works.html) — the visual guide: system map, one
   chat turn end to end, the figure guard, workflows, storage rules, roadmap. Open it in a
   browser; start here if you are new. Update it when a diagram stops matching the code.
+- [docs/PHASE-2-INGESTION.md](docs/PHASE-2-INGESTION.md) and
+  [docs/PHASE-3-PLAYGROUND.md](docs/PHASE-3-PLAYGROUND.md) — buildable specs for the current
+  and next phase
 - this README — how to run it
 
 **Status: Phases 0, 1 and 1.5 built and verified against the Plaid sandbox. Phase 2 — document
@@ -330,9 +333,12 @@ the model declines instead of subtracting. That refusal is the feature.
 - **Phase 2 — document ingestion.** The current work: CSV, PDF, and typed-entry sources feeding
   the same snapshot Plaid does, so the app works for a user with no bank connected at all. The
   buildable spec is `docs/PHASE-2-INGESTION.md`.
-- **Phase 3 — AI sophistication.** Formalized identity, hardened router, the `insight_log` writer
-  (transform, table, and tests exist; nothing writes), proactive insights, model routing and cost
-  controls, `riskTolerance` finally doing work, and the SnapTrade adapter. Deliberately after
-  Phase 2: tuning narration against sandbox numbers optimizes against fiction.
+- **Phase 3 — the playground.** A developer area at `/playground` (gated by `PLAYGROUND_ENABLED`)
+  that follows one question through every stage — snapshot, router, workflow, evidence,
+  synthesis, guard — and lets any stage run alone with edited input or changed prompts and
+  models. It adds a notebook for every tool and compute function, the ingestion lane, a guard
+  bench and a routing suite. The AI work is then done through it: formalized identity, a measured
+  router, the `insight_log` writer, `riskTolerance` doing work, cost controls, SnapTrade. The
+  buildable spec is `docs/PHASE-3-PLAYGROUND.md`.
 - **Phase 4 — deployment.** Neon + Vercel, plus a real blob store behind `DocumentStore` (Vercel's
   filesystem does not persist). Moved last on purpose — see CLAUDE.md §8.

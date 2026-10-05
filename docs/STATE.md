@@ -13,7 +13,8 @@ are the only route to real data.
 
 **Checkpoint status** (Checkpoint N closes Phase N; renumbered from the original one-ahead
 scheme, see CLAUDE.md §8): 0 ✅ · 1 functionally ✅, formally ⬜ (deploy only, now Phase 4) ·
-1.5 ✅ · 2 ⬜ (ingestion — current) · 3 ⬜ (AI sophistication, not yet defined) · 4 ⬜ (deploy).
+1.5 ✅ · 2 ⬜ (ingestion — current) · 3 ⬜ (the playground — specified, see
+[PHASE-3-PLAYGROUND.md](PHASE-3-PLAYGROUND.md)) · 4 ⬜ (deploy).
 
 Checkpoint 1.5 passed on a real run: a brand-new Clerk user signed up locally, linked a sandbox
 institution through the UI, set a spend target, walked every route, and read the network panels.
@@ -353,6 +354,34 @@ rests on. Three things worth knowing before opening either:
   convention.** Plaid uses positive = money *out*; most bank CSVs use the opposite. Getting it
   backwards inverts savings rate and swaps income with spending with **no error**, every figure
   still plausible. PHASE-2-INGESTION.md §3.4 is a numbered list for that reason.
+
+## After that: Phase 3, the playground (specified, not started)
+
+Phase 3 was redefined on 2026-10-05. Its centrepiece is a developer playground at `/playground`:
+the prompt-to-answer lifecycle shown stage by stage, every stage runnable alone with hand-edited
+input and changed prompts/models, a notebook for every tool and compute function, the ingestion
+lane, a guard bench and a routing suite. The older AI-sophistication items stay in the phase and
+are done *through* the playground. The spec is **[PHASE-3-PLAYGROUND.md](PHASE-3-PLAYGROUND.md)**;
+Checkpoint 3 is defined there in §11.
+
+**Do not build any of it during Phase 2**, but avoid two Phase 2 choices that would make it
+awkward:
+- **Ingest stages must be callable alone, on in-memory bytes, with no persistence.** The Phase 2
+  sketch has `upload.ts` doing sniff, hash, dedupe *and* persist in one call; split persistence
+  out. The playground's ingestion lane runs everything up to the draft and must never write.
+- **Keep the transcription prompt and model as parameters** of `pdf/transcribe.ts`, with today's
+  values as defaults, the same way PHASE-3 §4.1 does for the router and synthesis.
+
+Three things discovered while specifying it, recorded so they are not rediscovered:
+- **The atomic tools' parameter schemas live in `apps/mcp/src/server.ts`**, not in `core`. The
+  playground's notebook needs the same schemas, so Phase 3 moves them to a `core` tool catalog
+  that both consume (spec §4.2) rather than writing them twice.
+- **`summary_overview` writes.** It appends a `networth_snapshots` row on every run. Run on a
+  fixture or edited snapshot, that would put a fake point in the user's real history, so the
+  workflow contract gains a dry-run flag (spec §4.3).
+- **Model ids and token limits are module constants in `apps/web/src/server/agent.ts`.** They
+  become an `AgentConfig` in `core` with today's values as defaults (spec §4.1). `/api/chat`
+  must keep ignoring any config sent to it.
 
 ## Deployment (now Phase 4, deliberately last)
 

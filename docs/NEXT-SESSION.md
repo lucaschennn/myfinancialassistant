@@ -61,6 +61,10 @@ NOT DONE, and deliberately out of this phase's scope unless I say otherwise:
 - insight_log still has no writer. Phase 3.
 - riskTolerance and annualIncomeCents still drive nothing, and there is deliberately no UI to
   set either. That is a recorded decision in STATE.md. Do not add the inputs.
+- The Phase 3 developer playground (docs/PHASE-3-PLAYGROUND.md). Do not build it now. But do
+  respect its two Phase 2 seams, noted in PHASE-2-INGESTION.md §3: ingest stages callable alone
+  on in-memory bytes with persistence split out, and the transcription prompt/model passed in
+  as parameters with defaults.
 
 THE SHAPE OF PHASE 2, in one paragraph:
 The session snapshot stops being "the result of a Plaid fetch" and becomes "the merge of every

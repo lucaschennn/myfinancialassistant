@@ -198,7 +198,8 @@ html { scroll-behavior: smooth; }
   <a href="#workflows"><b>04</b>Six workflows</a>
   <a href="#storage"><b>05</b>What is stored</a>
   <a href="#import"><b>06</b>Document import</a>
-  <a href="#roadmap"><b>07</b>Roadmap</a>
+  <a href="#playground"><b>07</b>Playground</a>
+  <a href="#roadmap"><b>08</b>Roadmap</a>
 </nav>
 
 <div class="legend" aria-label="Colour key used by every diagram">
@@ -653,10 +654,71 @@ html { scroll-behavior: smooth; }
   <div class="code-refs"><b>Spec</b><code>docs/PHASE-2-INGESTION.md</code><code>CLAUDE.md §0.8, §7b</code></div>
 </section>
 
-<!-- 07 ROADMAP -->
+<!-- 07 PLAYGROUND -->
+<section id="playground">
+  <header>
+    <h2><span class="n">07</span>The playground <span class="pill plan">Phase 3 · planned</span></h2>
+    <p>Production runs all eight stages as one call with settings fixed in code. The playground calls the same functions one stage at a time. You can feed any stage your own input, change its prompt or model, and see what it passes on. It's gated by a flag, off in production, and never writes.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 316" role="img" aria-label="The same eight stages, snapshot through answer, are driven two ways: production's /api/chat runs them all in order with config fixed in code, while the planned playground can enter any single stage with edited input and changed config, and never writes.">
+      <!-- Production lane -->
+      <rect class="n" x="20" y="22" width="920" height="54" rx="6"/>
+      <text class="t-h" x="36" y="45">Production · /api/chat</text>
+      <text class="t-s" x="36" y="64">runs every stage in order · config fixed in code · accepts no overrides</text>
+      <line class="a" x1="70" y1="76" x2="70" y2="115" marker-end="url(#m)"/>
+      <text class="t-lbl" x="78" y="100">question</text>
+      <line class="a" x1="889" y1="118" x2="889" y2="79" marker-end="url(#m)"/>
+      <text class="t-lbl" x="881" y="100" text-anchor="end">answer</text>
+
+      <!-- Shared stages -->
+      <rect class="n-ext" x="20" y="118" width="100" height="58" rx="5"/><text class="t-h" x="70" y="151" text-anchor="middle">Snapshot</text>
+      <rect class="n-ai" x="137" y="118" width="100" height="58" rx="5"/><text class="t-h" x="187" y="151" text-anchor="middle">Router</text>
+      <rect class="n-code" x="254" y="118" width="100" height="58" rx="5"/><text class="t-h" x="304" y="151" text-anchor="middle">Params</text>
+      <rect class="n-code" x="371" y="118" width="100" height="58" rx="5"/><text class="t-h" x="421" y="151" text-anchor="middle">Workflow</text>
+      <rect class="n-code" x="488" y="118" width="100" height="58" rx="5"/><text class="t-h" x="538" y="151" text-anchor="middle">Evidence</text>
+      <rect class="n-ai" x="605" y="118" width="100" height="58" rx="5"/><text class="t-h" x="655" y="151" text-anchor="middle">Synthesis</text>
+      <rect class="n-code" x="722" y="118" width="100" height="58" rx="5"/><text class="t-h" x="772" y="151" text-anchor="middle">Guard</text>
+      <rect class="n" x="839" y="118" width="100" height="58" rx="5"/><text class="t-h" x="889" y="151" text-anchor="middle">Answer</text>
+      <line class="a" x1="120" y1="147" x2="135" y2="147" marker-end="url(#m)"/>
+      <line class="a" x1="237" y1="147" x2="252" y2="147" marker-end="url(#m)"/>
+      <line class="a" x1="354" y1="147" x2="369" y2="147" marker-end="url(#m)"/>
+      <line class="a" x1="471" y1="147" x2="486" y2="147" marker-end="url(#m)"/>
+      <line class="a" x1="588" y1="147" x2="603" y2="147" marker-end="url(#m)"/>
+      <line class="a" x1="705" y1="147" x2="720" y2="147" marker-end="url(#m)"/>
+      <line class="a" x1="822" y1="147" x2="837" y2="147" marker-end="url(#m)"/>
+      <text class="t-s" x="480" y="198" text-anchor="middle">the same core functions in both paths, so neither can drift from the other</text>
+
+      <!-- Playground lane -->
+      <rect class="n planned" x="20" y="240" width="920" height="60" rx="6"/>
+      <text class="t-h" x="36" y="264">Playground · /api/playground/*</text>
+      <text class="t-s" x="36" y="284">enter any stage · edited input · changed prompts and models · see what it passes on · never writes</text>
+      <line class="a planned" x1="70" y1="238" x2="70" y2="179" marker-end="url(#m)"/>
+      <line class="a planned" x1="187" y1="238" x2="187" y2="179" marker-end="url(#m)"/>
+      <line class="a planned" x1="304" y1="238" x2="304" y2="179" marker-end="url(#m)"/>
+      <line class="a planned" x1="421" y1="238" x2="421" y2="179" marker-end="url(#m)"/>
+      <line class="a planned" x1="538" y1="238" x2="538" y2="179" marker-end="url(#m)"/>
+      <line class="a planned" x1="655" y1="238" x2="655" y2="179" marker-end="url(#m)"/>
+      <line class="a planned" x1="772" y1="238" x2="772" y2="179" marker-end="url(#m)"/>
+      <text class="t-lbl" x="896" y="226" text-anchor="end">run this stage alone</text>
+    </svg>
+    </div>
+    <figcaption>Besides the stage-by-stage view, the playground has a notebook that runs every tool and compute function individually. It also has an ingestion lane that takes a statement up to the draft, then shows how Jolly would read it, without saving anything. A guard bench tests prose against evidence with no model calls, and a routing suite scores the router on a set of saved questions. The guards always run and can't be switched off from any setting.</figcaption>
+  </figure>
+  <ul class="rules">
+    <li><span class="ref">Editable per run</span><strong>Prompts and models</strong><span>Router and Jolly system prompts, model, token limits, history windows, the retry message, and the PDF transcription prompt.</span></li>
+    <li><span class="ref">Editable per run</span><strong>Inputs and dates</strong><span>Any stage's input; the snapshot (live, a fixture, or hand-edited); "now" for date resolution; FIRE parameters; CSV sign convention.</span></li>
+    <li><span class="ref">Shown, not editable</span><strong>The structure</strong><span>The six pipelines, the router's list of choices, the guard rules, and the exact evidence text the model receives.</span></li>
+    <li><span class="ref">Never</span><strong>Writes or shortcuts</strong><span>Never writes a net-worth point, a ledger row or a stored file. Never commits a draft, never turns off a guard, never changes production at runtime.</span></li>
+  </ul>
+  <div class="code-refs"><b>Spec</b><code>docs/PHASE-3-PLAYGROUND.md</code><code>CLAUDE.md §8 Phase 3</code></div>
+</section>
+
+<!-- 08 ROADMAP -->
 <section id="roadmap">
   <header>
-    <h2><span class="n">07</span>Roadmap</h2>
+    <h2><span class="n">08</span>Roadmap</h2>
     <p>Each phase now ends in the checkpoint with the same number. Older commits still use the previous numbering, where checkpoints ran one ahead of their phases.</p>
   </header>
   <ol class="road">
@@ -664,13 +726,13 @@ html { scroll-behavior: smooth; }
     <li><span class="ph">1</span><span class="what"><strong>Multi-user MVP</strong><span>Checkpoint 1 · sign up, link a bank, dashboard, chat with evidence</span></span><span class="st part">passed locally · deploy in 4</span></li>
     <li><span class="ph">1.5</span><span class="what"><strong>Surface area and network transparency</strong><span>Checkpoint 1.5 · every network call visible, nothing hidden</span></span><span class="st done">passed</span></li>
     <li class="current"><span class="ph">2</span><span class="what"><strong>Your own data: document ingestion</strong><span>Checkpoint 2 · with Plaid disconnected, real CSV and PDF give correct answers</span></span><span class="st now">current · not started</span></li>
-    <li><span class="ph">3</span><span class="what"><strong>System view</strong><span>Checkpoint 3 · a separate UI that shows how the system works. Being redefined.</span></span><span class="st todo">to define</span></li>
+    <li><span class="ph">3</span><span class="what"><strong>The playground, and the AI work done with it</strong><span>Checkpoint 3 · every stage visible and runnable alone; prompts tuned and the router measured on real data</span></span><span class="st todo">specified</span></li>
     <li><span class="ph">4</span><span class="what"><strong>Deployment</strong><span>Checkpoint 4 · Checkpoints 1 and 2 re-run on Vercel + Neon by a new user</span></span><span class="st todo">not started</span></li>
   </ol>
 </section>
 
 <footer>
-  This page was drawn from the repository as of 5 October 2026: <code>CLAUDE.md</code>, <code>docs/STATE.md</code>, <code>docs/PHASE-2-INGESTION.md</code>, and the code paths named under each diagram. Anything labelled planned does not exist in code yet.
+  This page was drawn from the repository as of 5 October 2026: <code>CLAUDE.md</code>, <code>docs/STATE.md</code>, <code>docs/PHASE-2-INGESTION.md</code>, and the code paths named under each diagram. Anything labelled planned does not exist in code yet. Specs: <code>docs/PHASE-2-INGESTION.md</code>, <code>docs/PHASE-3-PLAYGROUND.md</code>.
 </footer>
 
 </div>
