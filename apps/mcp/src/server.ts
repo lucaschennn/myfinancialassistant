@@ -1,5 +1,5 @@
 /**
- * Thin MCP wrapper (§1, §2) — the Checkpoint 1 test harness.
+ * Thin MCP wrapper (§1, §2) — the Checkpoint 0 test harness.
  *
  * "Thin" is the contract: every tool here is a one-line delegation to `@pfg/core`.
  * No computation, no reshaping of figures, no business logic. If logic ever
@@ -9,7 +9,7 @@
  * This exposes the ATOMIC tools, not the workflow pipelines. Claude Code drives
  * the ordering itself in this path, which is fine for interactive testing but
  * means it does NOT exercise the fixed pipeline (§1) — that is validated
- * separately by `summaryOverview.test.ts` and `scripts/checkpoint1-summary.ts`.
+ * separately by `summaryOverview.test.ts` and `scripts/checkpoint0-summary.ts`.
  *
  * Local dev only. Never deployed.
  */
@@ -49,7 +49,7 @@ loadEnv();
 /**
  * Config is loaded before anything else so a misconfigured harness fails with a
  * one-line instruction on stderr rather than a stack trace — this is the first
- * thing a person sees when wiring up Checkpoint 1.
+ * thing a person sees when wiring up Checkpoint 0.
  */
 function loadOrExit(): ReturnType<typeof loadHarnessConfig> {
   try {

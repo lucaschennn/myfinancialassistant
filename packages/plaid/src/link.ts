@@ -135,7 +135,7 @@ export interface CreateSandboxItemOptions {
 
 /**
  * Sandbox-only shortcut that mints a public_token without any UI, so Checkpoint
- * 1 can be reached before the Plaid Link frontend exists (Phase 1).
+ * 0 can be reached before the Plaid Link frontend exists (Phase 1).
  */
 export async function createSandboxItem(
   options: CreateSandboxItemOptions,

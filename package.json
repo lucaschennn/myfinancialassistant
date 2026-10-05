@@ -24,7 +24,7 @@
     "mcp": "npm run start -w @pfg/mcp",
     "link:sandbox": "tsx scripts/link-sandbox-item.ts",
     "set:profile": "tsx scripts/set-profile.ts",
-    "checkpoint1": "tsx scripts/checkpoint1-summary.ts",
+    "checkpoint0": "tsx scripts/checkpoint0-summary.ts",
     "agent:smoke": "tsx scripts/agent-smoke.ts"
   },
   "devDependencies": {

@@ -20,11 +20,35 @@ const isPublicRoute = createRouteMatcher([
   '/api/plaid/webhook',
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
-  }
-});
+export default clerkMiddleware(
+  async (auth, request) => {
+    if (!isPublicRoute(request)) {
+      await auth.protect();
+    }
+  },
+  {
+    /**
+     * Clerk's default tolerance between its clock and ours is 5s. A machine
+     * whose clock has drifted further than that rejects every token Clerk
+     * issues with `token-iat-in-the-future`, and because the rejection triggers
+     * a refresh that issues another equally-future token, the sign-in turns
+     * into an infinite redirect loop. Clerk's own second error message blames
+     * mismatched instance keys, which is a red herring — the keys are fine.
+     *
+     * The tell is that a manual reload fixes it: by then enough wall-clock time
+     * has passed for the cookie's `iat` to no longer be ahead of us.
+     *
+     * Widening the window is not the real fix — a drifted clock should be
+     * corrected at the OS (see docs/STATE.md) — but a dev machine that has
+     * skipped an NTP sync should degrade into a slightly stale token rather
+     * than into an unrecoverable loop on first load. 30s is chosen to absorb
+     * ordinary drift while staying far short of the session token's own
+     * lifetime, so the extra grace this grants an *expired* token is
+     * immaterial.
+     */
+    clockSkewInMs: 30_000,
+  },
+);
 
 export const config = {
   matcher: [

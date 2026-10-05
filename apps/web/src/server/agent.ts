@@ -3,7 +3,7 @@
  *
  * Model roles are the ones §2 fixes: Haiku classifies, Sonnet narrates. The
  * executor in between is entirely deterministic — it is the same code path the
- * Checkpoint 1 test drives, so the figures a user reads in chat are produced by
+ * Checkpoint 0 test drives, so the figures a user reads in chat are produced by
  * the pipeline that has been under test since Phase 0.
  *
  * Two design points worth stating outright:

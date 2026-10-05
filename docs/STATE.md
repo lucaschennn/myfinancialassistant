@@ -3,14 +3,52 @@
 Living handoff notes. [CLAUDE.md](../CLAUDE.md) is the spec (what we're building and why);
 [README.md](../README.md) is how to run it. This file is where things stand and what's open.
 
-Last updated after a pre-deploy review pass (three independent reviewers over docs, code, and
-deploy/security readiness — all three voted GO-WITH-FIXES; the fixes are below). **Not
-deployed, and not yet run end to end as a real signed-up user** — those two are what stand
-between here and Checkpoint 2.
+Last updated at the **start of Phase 2 (document ingestion)**, after the timeline was
+re-planned: **deployment moved out to Phase 4** and document ingestion became Phase 2, ahead of
+the AI-sophistication work that used to hold that slot. See CLAUDE.md §8 Phase 2 for the
+reasoning; the short version is that every judgement about Jolly's guidance so far has been made
+against First Platypus Bank's invented numbers, and a nicer deployment of fiction is not a
+product. §10 blocks live institutions until the security and employer checks clear, so documents
+are the only route to real data.
 
-168 tests, typecheck clean, production build clean, and all six workflows answering clean
+**Checkpoint status** (Checkpoint N closes Phase N; renumbered from the original one-ahead
+scheme, see CLAUDE.md §8): 0 ✅ · 1 functionally ✅, formally ⬜ (deploy only, now Phase 4) ·
+1.5 ✅ · 2 ⬜ (ingestion — current) · 3 ⬜ (AI sophistication, not yet defined) · 4 ⬜ (deploy).
+
+Checkpoint 1.5 passed on a real run: a brand-new Clerk user signed up locally, linked a sandbox
+institution through the UI, set a spend target, walked every route, and read the network panels.
+That run also covers every clause of Checkpoint 1's acceptance except the word *deployed*.
+
+176 tests, typecheck clean, production build clean, and all six workflows answering clean
 against the live Plaid sandbox. Three defects were found by using the §0.1 guard in anger —
 see *The guard's first findings* below.
+
+### The Clerk cold-start redirect loop (fixed in the app, and it will recur in the OS)
+
+First sign-in failed with a wall of `token-iat-in-the-future` followed by *"Refreshing the
+session token resulted in an infinite redirect loop… your Clerk instance keys do not match"*.
+A manual reload always worked. **The keys are fine — that second message is generic and a red
+herring.** The cause is clock drift: this machine was **6.1s behind** real time, Clerk's default
+tolerance is **5s**, so every token it issued was rejected as future-dated, and the rejection
+triggered a refresh that issued another equally-future token. A reload works because by then
+enough wall-clock time has passed for the cookie's `iat` to no longer be ahead of us.
+
+Two fixes, and the second one is the one that matters:
+
+1. **App-side, landed:** `proxy.ts` now passes `clockSkewInMs: 30_000` to `clerkMiddleware`.
+   Ordinary drift degrades into a slightly stale token instead of an unrecoverable loop. 30s is
+   far short of the session token's own lifetime, so the extra grace it grants an *expired*
+   token is immaterial. Confirmed the option is forwarded: `clerkMiddleware`'s options spread
+   into `authenticateRequest`, and `clockSkewInMs` is on `VerifyJwtOptions` (default 5000).
+2. **OS-side, needs an elevated shell:** this is the *second* time this has bitten, because the
+   first fix never persisted — `W32Time` was still `StartType: Manual` with `Last Successful
+   Sync Time: unspecified`. Setting the service to Automatic is the part that makes it stick:
+   ```powershell
+   Set-Service W32Time -StartupType Automatic
+   Start-Service W32Time
+   w32tm /resync /force
+   ```
+   Check drift with `w32tm /stripchart /computer:time.windows.com /samples:3 /dataonly`.
 
 ---
 
@@ -46,7 +84,7 @@ the name, never the value.
 
 **3. There was no way for a real user to set a spend target.** `setProfile` was reachable only
 from `npm run set:profile` and the MCP harness, so every Clerk signup saw a permanently broken
-FIRE card. This was not a cosmetic gap: Checkpoint 2's acceptance text is *"a new user can sign
+FIRE card. This was not a cosmetic gap: Checkpoint 1's acceptance text is *"a new user can sign
 up, link a sandbox institution, see a transparent summary dashboard"*, and that was false for
 anyone without `psql` access. `/api/profile` plus `SpendTarget.tsx` closes it, rendered inside
 the FIRE card itself so the fix appears where the limitation is explained rather than behind a
@@ -58,7 +96,7 @@ Parsing it into a number in the browser would put a float conversion outside the
 
 ---
 
-## Where we are now (Phase 1, in progress)
+## Where Phases 1 and 1.5 landed
 
 **Built and verified against the live Plaid sandbox:**
 
@@ -72,8 +110,8 @@ Parsing it into a number in the browser would put a float conversion outside the
   name a pipeline that does not exist.
 - **The §0.1 guard is now enforced, not requested** — see below.
 
-**Not yet done:** deployment (Neon + Vercel), `insight_log` writer, any run against a real
-Clerk session (keys not yet created).
+**Not yet done:** deployment (Neon + Vercel — now Phase 4), the `insight_log` writer (Phase 3),
+and any data that is not First Platypus Bank's fiction (Phase 2 — the point of it).
 
 ### §0.1 stopped being an assumption
 
@@ -89,7 +127,7 @@ arithmetic — *"what is my net worth minus my mortgage?"* — got the right ref
 > "I can't give you that figure — it would require subtracting the mortgage balance from
 > net worth, and that's a calculation I'm not able to do on the fly."
 
-Net worth still reads **−$40,452.32**, matching Checkpoint 1.
+Net worth still reads **−$40,452.32**, matching Checkpoint 0.
 
 ### A real leak found and fixed
 
@@ -122,7 +160,10 @@ passes with or without the fix.
 > **The general rule this exposes:** what Jolly is permitted to say is exactly what
 > `humanize()` emits from the bundle. Any new compute field holding a signed figure must
 > also expose the form a person would actually speak, or the guard will reject correct
-> prose. Worth remembering when Phase 2 adds compute functions.
+> prose. Worth remembering when a later phase adds compute functions — and note that Phase 2's
+> manual ledger satisfies it by construction, because manual liabilities are stored as the
+> positive amount owed exactly as Plaid reports them. That is the *reason* to store them that
+> way, not merely consistency.
 
 **2. The retry turn leaked into the answer.** The correction is delivered as a `user`
 message, so the model read it as the person speaking and replied conversationally — *"You're
@@ -142,7 +183,7 @@ second synthesis call.
 
 ## Where Phase 0 landed
 
-**Phase 0 complete. Checkpoint 1 passed — both parts.**
+**Phase 0 complete. Checkpoint 0 passed — both parts.**
 
 Verified against a live Plaid sandbox item (First Platypus Bank: 12 accounts, 13 holdings,
 48 transactions):
@@ -180,10 +221,10 @@ That is no longer true:
 | Synthesis prompt requires attribution to a bundle entry | Built — and **verified**, not just requested (`checkAttribution`) |
 | UI renders expandable "why" cards | Built — dashboard and chat, both from the same bundle |
 | Bundle is not persisted | True, and now non-trivially: it is regenerated per turn (§7) |
-| `insight_log` stores the reasoning trace | Transform + table + test exist; **still nothing writes** (§8 → Phase 2) |
+| `insight_log` stores the reasoning trace | Transform + table + test exist; **still nothing writes** (§8 → Phase 3) |
 | Values regenerated live on revisit | True — every turn refetches and recomputes |
 
-The one row still outstanding is the `insight_log` writer, which §8 defers to Phase 2 on
+The one row still outstanding is the `insight_log` writer, which §8 defers to Phase 3 on
 purpose.
 
 ---
@@ -242,7 +283,9 @@ identifier, or its own tool name repeated.
 
 - **`deleteGoal` is not exposed over MCP** though it exists in `core`. An omission, not a
   decision — the setters got wired and the deleter didn't. It also has no test at any layer,
-  which is how it stayed invisible.
+  which is how it stayed invisible. Phase 2 touches `apps/mcp/src/server.ts` anyway to expose the
+  manual source, so PHASE-2-INGESTION.md §6.1 folds this in rather than leaving it for a session
+  that has no other reason to open that file.
 - **`annualIncomeCents` and `riskTolerance` are stored but drive nothing.** CLAUDE.md §4 lists
   them as profile fields, and `setProfile` writes them, but no compute function reads either —
   `savingsRate` takes income from `cashFlow`'s measured transaction inflow, not the profile.
@@ -259,20 +302,23 @@ identifier, or its own tool name repeated.
   > If you are here because `/goals` looks half-finished: it is not. Do not "fix" it by adding
   > the two inputs. Do one of the following first, then add the matching input with it.
 
-  **Income → a §4 compute gap, not a Phase 2 item.** Wire it as the `savingsRate` fallback:
+  **Income → a §4 compute gap, not an AI-phase item.** Wire it as the `savingsRate` fallback:
   when a period records zero inflow, fall back to the stored annual figure prorated to the
   period, flagged in provenance as profile-stated rather than measured. `savingsRate`'s own gap
   note already says a zero-income period usually means the paycheck lands in an unlinked
   account, so the fallback is answering a question the tool is already asking. This is
-  deterministic compute with no model involved — filing it under Phase 2's "AI Sophistication"
+  deterministic compute with no model involved — filing it under Phase 3's "AI Sophistication"
   would bury a small compute fix in a phase about the model. Do it the next time `savingsRate`
-  is open.
+  is open. **Phase 2 opens `savingsRate`'s neighbourhood but not `savingsRate` itself**, so this
+  is still not the moment unless the sign-convention work ends up inside it.
 
-  **Risk tolerance → Phase 2, with the identity work.** Its use is narration: allocation versus
+  **Risk tolerance → Phase 3, with the identity work.** Its use is narration: allocation versus
   stated tolerance in `investment_review`, and tone in the system prompt. That belongs with the
   formalized identity and deepened evidence rendering, not on its own.
-- **`insight_log` has no writer.** Deliberate: §8 puts the wiring in Phase 2. `toReasoningTrace()`
-  is built and tested against the invariant that matters (no financial values survive).
+- **`insight_log` has no writer.** Deliberate: §8 puts the wiring in Phase 3. `toReasoningTrace()`
+  is built and tested against the invariant that matters (no financial values survive). When the
+  writer lands, `original_filename` needs adding to the redaction rules alongside the `Cents`
+  suffix — a real statement filename carries an account number.
 - **Provenance notes are free text and contain account names and masks** (e.g. "Plaid Mortgage
   (…8888)"). Not a financial figure, and `linked_accounts` already stores masks by design — but
   it should be a deliberate call when `insight_log` starts persisting traces, not something
@@ -286,25 +332,53 @@ identifier, or its own tool name repeated.
 
 ---
 
-## What is left for Checkpoint 2
+## What is next: Phase 2, document ingestion
 
-Checkpoint 2 is *"sign up, link a sandbox institution, see a transparent summary, ask
-follow-ups with traceable evidence, **deployed**."* Everything but the last word is built.
+The buildable spec is **[docs/PHASE-2-INGESTION.md](PHASE-2-INGESTION.md)** — concrete types,
+tables, build order, and the traps. CLAUDE.md §0.4, §0.8, §3, §7b and §8 carry the principles it
+rests on. Three things worth knowing before opening either:
+
+- **§0.4 changed, and it was the biggest spec decision in this re-plan.** "Plaid is the system of
+  record; we never mirror its financial data" became "never mirror a system of record we do not
+  own", with a corollary: a dataset with no external system of record has to be stored by us or it
+  does not exist. Uploaded documents are authoritative *because* the user handed them over — there
+  is nothing to refetch them from. The test for which regime applies is mechanical: *can we get
+  this back from somewhere else on demand?* Plaid data, still no. Manual data, no — so it persists.
+  The two regimes stay visibly distinct via `source` on every row.
+- **§0.8 is new:** extraction is transcription, not computation. The model may emit only the
+  verbatim string it read; a deterministic function converts it to cents; the string must be found
+  in the document's own text or the row is dropped; a human confirms before commit.
+  `checkTranscription()` is the §0.1-style guard, built as a sibling of `checkAttribution()`.
+- **The likeliest way this phase ships something quietly wrong is the transaction sign
+  convention.** Plaid uses positive = money *out*; most bank CSVs use the opposite. Getting it
+  backwards inverts savings rate and swaps income with spending with **no error**, every figure
+  still plausible. PHASE-2-INGESTION.md §3.4 is a numbered list for that reason.
+
+## Deployment (now Phase 4, deliberately last)
+
+Moved out of Checkpoint 1. Deploying earlier is lower-risk in the narrow sense but buys nothing
+the local build does not already prove, and it front-loads infrastructure ahead of the work that
+decides what the product is. Everything in Checkpoint 1's acceptance text *except the word
+"deployed"* has already passed locally.
+
+Prerequisites, carried forward intact:
 
 1. **Neon** — the one account still missing. Create it through the Vercel Marketplace so
    credentials are auto-injected. Pick **Postgres 17** (matching `docker-compose.yml`) and the
    same region as the functions, since §7's refetch-per-turn already pays one Plaid round trip
    per turn without adding a cross-region DB hop.
-2. **Deploy to Vercel.** Migrations now prefer `DATABASE_URL_UNPOOLED` automatically and fall
-   back to `DATABASE_URL` (`packages/db/src/env.ts`), so this is no longer a step anyone has to
-   remember. Generate a **fresh** `TOKEN_ENCRYPTION_KEY` for production rather than reusing the
-   dev one — Neon starts empty, so no token needs to decrypt across the boundary.
-3. **End-to-end run as a brand-new user** — sign up, link First Platypus through the UI, set a
-   spend target, ask follow-ups. This is the acceptance test, and it has not been done yet.
-   Step 3 is only performable at all as of the profile UI landing (below).
+2. **Deploy to Vercel.** Migrations prefer `DATABASE_URL_UNPOOLED` automatically and fall back to
+   `DATABASE_URL` (`packages/db/src/env.ts`), so that is no longer a step anyone has to remember.
+   Generate a **fresh** `TOKEN_ENCRYPTION_KEY` for production rather than reusing the dev one —
+   Neon starts empty, so no token needs to decrypt across the boundary.
+3. **A real blob store behind `DocumentStore`.** New, and a hard blocker: Vercel's filesystem does
+   not persist, so Phase 2's `LocalFileStore` cannot be deployed. Named in CLAUDE.md §2 and §8 so
+   it is not discovered here. A separate production `DOCUMENT_ENCRYPTION_KEY` too.
 4. **Confirm the Vercel plan honours `maxDuration = 120`** (`apps/web/src/app/api/chat/route.ts`).
    A chat turn is a live Plaid fetch plus a Haiku call plus a Sonnet call, and an attribution
    retry adds a *second* Sonnet call. Hobby caps conventional functions at 60s. Unverified.
+5. **End-to-end runs as a brand-new user** — both the Checkpoint 1 flow and the Checkpoint 2
+   document flow, against the deployed app, with documents surviving a redeploy.
 
 Clerk is **done** (development instance; `pk_test_`/`sk_test_` work on localhost and on Vercel
 preview URLs, so a production instance is only needed once a custom domain is attached).
@@ -366,7 +440,7 @@ important sentence on the card.
 ### Phase 1.5 as originally specified
 
 CLAUDE.md §8 gained a **Phase 1.5 — Surface Area & Network Transparency**, covering the four
-gaps in the Checkpoint 2 UI: no disclosure of network cost, a large amount of computed and
+gaps in the Checkpoint 1 UI: no disclosure of network cost, a large amount of computed and
 stored data that never reaches the screen (net worth history most notably — it has been
 accumulating since Phase 0), no information architecture beyond a single page, and evidence
 rendering that buries the product's own thesis in a collapsed `<details>`.
@@ -389,15 +463,21 @@ will show which surfaces actually matter before any of them get built.
   else's balances (§3) — but resource-based checks are the right shape before real users.
 - **Decide on provenance notes containing account names and masks.** They already reach the
   browser in "why" cards. Harmless today; it should be a deliberate call before `insight_log`
-  starts persisting traces, not something inherited by accident.
-- **`/api/plaid/webhook` does not exist.** `proxy.ts:20` allowlists it as a public route and
-  explains that it authenticates by signature — but no handler was ever written. §9's "Plaid
-  webhook signature verification" is therefore **not met**, not merely unverified: there is
-  nothing to verify. The practical consequence is that the app only learns an item has entered
+  starts persisting traces, not something inherited by accident. **Phase 2 raises the stakes:** a
+  real statement filename reads `chase_statement_4412_aug2026.pdf` and carries an account number,
+  so filenames join masks in this decision.
+- **`/api/plaid/webhook` does not exist.** `proxy.ts` allowlists it as a public route and explains
+  that it authenticates by signature — but no handler was ever written. §9's "Plaid webhook
+  signature verification" is therefore **not met**, not merely unverified: there is nothing to
+  verify. The practical consequence is that the app only learns an item has entered
   `login_required` or `revoked` when the next live fetch fails and surfaces it as a snapshot
   `gap`, which is acceptable for a sandbox demo but should be a stated deferral rather than an
   accident. Either build the handler or drop the allowlist entry so the route table stops
   implying one exists.
+- **Settle the §9 employer action item before Phase 2's first real upload.** It has been
+  hypothetical while everything was sandbox fiction. The moment the author's own bank statements
+  land in local storage it is not, and that is a better time to have thought about it than
+  afterwards.
 
 ---
 
@@ -420,3 +500,9 @@ draft, or withheld. Pass questions as arguments to test specific routes.
 `.env` is gitignored and already populated locally. If the sandbox user is missing, drop
 `--show` to create it, then `npm run set:profile -- --spend 60000 --income 120000 --risk moderate` —
 without a spend target `fireProgress` cannot run and the summary degrades to four tools.
+
+**Phase 2 adds two environment entries:** `DOCUMENT_ENCRYPTION_KEY` (distinct from
+`TOKEN_ENCRYPTION_KEY` — see CLAUDE.md §9) and optionally `DOCUMENT_STORE_DIR`, defaulting to
+`.documents/` at the repo root. **Gitignore that directory in the same commit that creates the
+store, before any real statement exists in it.** A bank statement accidentally committed cannot
+be un-committed.

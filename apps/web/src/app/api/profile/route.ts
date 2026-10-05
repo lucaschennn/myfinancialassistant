@@ -5,7 +5,7 @@
  * Until this route existed the only way to set one was `npm run set:profile`,
  * which meant a real signed-up user could never satisfy `fireProgress` at all —
  * their summary permanently showed the "needs a target" limitation with no way
- * to act on it. That gap sat directly inside Checkpoint 2's acceptance text.
+ * to act on it. That gap sat directly inside Checkpoint 1's acceptance text.
  *
  * The amount arrives as a STRING, not a number. §0.3 makes `dollarsToCents` the
  * only function permitted to touch a float, so the digits the user typed are

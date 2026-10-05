@@ -1,5 +1,5 @@
 /**
- * The summary dashboard — Checkpoint 2's "see a transparent summary" (§8).
+ * The summary dashboard — Checkpoint 1's "see a transparent summary" (§8).
  *
  * Rendered from the `summary_overview` evidence bundle rather than by calling
  * compute functions ad hoc. That matters: the dashboard and the chat answer are

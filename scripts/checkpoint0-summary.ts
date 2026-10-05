@@ -1,12 +1,12 @@
 /**
- * Checkpoint 1, part 1 (§8): invoke the `summary_overview` workflow executor
+ * Checkpoint 0, part 1 (§8): invoke the `summary_overview` workflow executor
  * DIRECTLY — not through MCP — against a live-fetched Plaid sandbox snapshot,
  * and print the resulting evidence bundle.
  *
  * Acceptance is: a correct, provenance-backed evidence bundle, with no
  * financial data persisted beyond the derived net worth snapshot.
  *
- *   npm run checkpoint1 -- --user <uuid>
+ *   npm run checkpoint0 -- --user <uuid>
  */
 
 import { formatCents, humanize, runWorkflow, toJson, toReasoningTrace } from '@pfg/core';
@@ -44,7 +44,7 @@ try {
     console.log(`No --user given; using the only user in the database.`);
   }
 
-  console.log(`\n=== Checkpoint 1: summary_overview for ${userId} ===\n`);
+  console.log(`\n=== Checkpoint 0: summary_overview for ${userId} ===\n`);
 
   // 1. Live fetch into an in-memory snapshot. Nothing here is written to disk.
   const started = Date.now();

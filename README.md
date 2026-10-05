@@ -7,9 +7,14 @@ carrying its own provenance.
 - [docs/STATE.md](docs/STATE.md) — where things stand, what's open, what's next
 - this README — how to run it
 
-**Status: Phase 1 built and verified against the Plaid sandbox — not yet deployed.** Auth, the
-web app, the agent loop, and all six workflows are in. Checkpoint 2 additionally requires a
-deploy and one end-to-end run as a real signed-up user; neither has happened yet.
+**Status: Phases 0, 1 and 1.5 built and verified against the Plaid sandbox. Phase 2 — document
+ingestion — is the current work. Not deployed, deliberately: that is Phase 4 now.** Auth, the web
+app, the agent loop, all six workflows, the network trace, and the routes `/history`,
+`/accounts`, `/goals` are in, and a brand-new Clerk user has walked the whole thing locally.
+
+Everything so far has run on First Platypus Bank, a Plaid sandbox fiction. Phase 2 is how real
+data gets in without production Plaid access: the user's own CSV exports and PDF statements.
+See `docs/PHASE-2-INGESTION.md`.
 
 ## The one idea worth internalising
 
@@ -90,6 +95,13 @@ CLERK_SECRET_KEY=sk_test_…
 The development instance is the right one — its `pk_test_`/`sk_test_` keys work on localhost
 *and* on Vercel preview URLs, so a production instance is only needed once a custom domain is
 attached.
+
+> **If sign-in loops with `token-iat-in-the-future`, your clock is wrong, not your keys.** Clerk's
+> follow-up message says *"your Clerk instance keys do not match"* — it is a generic redirect-loop
+> message and a red herring. Clerk tolerates 5s of drift by default; `proxy.ts` raises that to 30s
+> so ordinary drift degrades into a slightly stale token rather than an unrecoverable loop. If it
+> still loops, fix the clock in an elevated shell: `Set-Service W32Time -StartupType Automatic;
+> Start-Service W32Time; w32tm /resync /force`. The tell is that a manual reload works.
 
 No webhook is required. User rows are provisioned just-in-time on the first authenticated
 request, which avoids needing a public tunnel in development. A webhook only becomes worth
@@ -206,9 +218,9 @@ select as_of_date, (net_worth_cents / 100.0)::money as net_worth from networth_s
 
 You will not find balances, holdings, or transactions in there. That is the design (§0.4), not
 a missing feature — use the app, the MCP tools, `npm run agent:smoke`, or
-`npm run checkpoint1` to see live figures.
+`npm run checkpoint0` to see live figures.
 
-## Checkpoint 1 — passed
+## Checkpoint 0 — passed
 
 Two independent parts, both required (§8). Both verified against a live First Platypus Bank
 sandbox item (12 accounts, 13 holdings, 48 transactions).
@@ -217,7 +229,7 @@ sandbox item (12 accounts, 13 holdings, 48 transactions).
 against a live sandbox fetch:
 
 ```bash
-npm run checkpoint1 -- --verbose
+npm run checkpoint0 -- --verbose
 ```
 
 Expect the fixed pipeline `listAccounts → getBalances → netWorth → assetAllocation →
@@ -247,7 +259,7 @@ narrates it, the guard checks the result.
 **The executor directly** — a live fetch through the real pipeline, no model involved:
 
 ```bash
-npm run checkpoint1 -- --verbose
+npm run checkpoint0 -- --verbose
 ```
 
 **On fixtures** — no Plaid, no database, runs in milliseconds:
@@ -270,7 +282,7 @@ defined in `core` and cannot drift.
 Worth keeping straight: calling `listAccounts`, `getBalances`, `netWorth`, `assetAllocation`,
 `fireProgress` yourself in that order is **not** a workflow run. The output looks the same,
 but you chose the order — which is exactly the freedom a workflow exists to remove. That is
-why Checkpoint 1 has two parts, and why `runWorkflow` does not substitute for either.
+why Checkpoint 0 has two parts, and why `runWorkflow` does not substitute for either.
 
 ## Notes on the money rules
 
@@ -312,9 +324,12 @@ the model declines instead of subtracting. That refusal is the feature.
 
 ## Not yet built
 
-- **Deployment.** Neon + Vercel, and one end-to-end run as a genuinely new signed-up user.
-  That is what stands between here and Checkpoint 2.
-- **`insight_log` has no writer.** The transform, table, and tests exist; §8 puts the wiring in
-  Phase 2.
-- **Phase 2** generally: proactive insights, model routing and cost controls, and the SnapTrade
-  adapter.
+- **Phase 2 — document ingestion.** The current work: CSV, PDF, and typed-entry sources feeding
+  the same snapshot Plaid does, so the app works for a user with no bank connected at all. The
+  buildable spec is `docs/PHASE-2-INGESTION.md`.
+- **Phase 3 — AI sophistication.** Formalized identity, hardened router, the `insight_log` writer
+  (transform, table, and tests exist; nothing writes), proactive insights, model routing and cost
+  controls, `riskTolerance` finally doing work, and the SnapTrade adapter. Deliberately after
+  Phase 2: tuning narration against sandbox numbers optimizes against fiction.
+- **Phase 4 — deployment.** Neon + Vercel, plus a real blob store behind `DocumentStore` (Vercel's
+  filesystem does not persist). Moved last on purpose — see CLAUDE.md §8.

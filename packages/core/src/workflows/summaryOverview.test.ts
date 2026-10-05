@@ -1,9 +1,9 @@
 /**
- * Checkpoint 1, part 1 (§8): the fixed pipeline is validated by calling the
+ * Checkpoint 0, part 1 (§8): the fixed pipeline is validated by calling the
  * workflow executor directly — never through MCP, where Claude Code chooses the
  * tool order itself and would prove nothing about this pipeline (§1).
  *
- * These run on fixtures. `scripts/checkpoint1-summary.ts` runs the same
+ * These run on fixtures. `scripts/checkpoint0-summary.ts` runs the same
  * executor against a live Plaid sandbox fetch.
  */
 

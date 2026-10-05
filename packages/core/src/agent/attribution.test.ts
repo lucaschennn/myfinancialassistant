@@ -1,5 +1,5 @@
 /**
- * Checkpoint 2's real question (§8, STATE.md): does the model attribute, or
+ * Checkpoint 1's real question (§8, STATE.md): does the model attribute, or
  * does it confabulate? These tests cover the detector that answers it.
  *
  * Note what is being tested. Not "does Claude behave" — that is a live-model
