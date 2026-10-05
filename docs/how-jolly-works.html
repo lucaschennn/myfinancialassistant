@@ -1,0 +1,678 @@
+<!doctype html>
+<!-- Visual system guide. Published copy: https://claude.ai/artifact/LEQvXND1t1hASYxnHXkfQ5
+     Keep this file and that page in step when the system changes. Open directly in a browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Jolly Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root {
+  --bg: #F3F5F3;
+  --surface: #FFFFFF;
+  --ink: #17201C;
+  --ink-2: #3C4743;
+  --muted: #64716C;
+  --line: #D4DBD7;
+  --code: #1D7350;  --code-bg: #E4F1EA;
+  --ai: #A35F14;    --ai-bg: #F7ECDC;
+  --ext: #335FA3;   --ext-bg: #E4EBF7;
+  --store: #6A4E9F; --store-bg: #EEE8F7;
+  --bad: #B3372F;   --bad-bg: #F8E3E1;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111714; --surface: #19211D; --ink: #E3EAE6; --ink-2: #B7C2BD; --muted: #8B9792; --line: #2D3732;
+    --code: #5CC796; --code-bg: #173328;
+    --ai: #E3A75C;   --ai-bg: #382916;
+    --ext: #82A8E8;  --ext-bg: #1B293F;
+    --store: #B49DE4; --store-bg: #29223E;
+    --bad: #EF847B;  --bad-bg: #3D1E1B;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111714; --surface: #19211D; --ink: #E3EAE6; --ink-2: #B7C2BD; --muted: #8B9792; --line: #2D3732;
+  --code: #5CC796; --code-bg: #173328;
+  --ai: #E3A75C;   --ai-bg: #382916;
+  --ext: #82A8E8;  --ext-bg: #1B293F;
+  --store: #B49DE4; --store-bg: #29223E;
+  --bad: #EF847B;  --bad-bg: #3D1E1B;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15.5px;
+  line-height: 1.6;
+  padding-inline: 20px;
+  padding-block: 0 72px;
+  margin: 0;
+}
+.wrap { max-width: 1040px; margin-inline: auto; }
+
+header.top { padding-block: 48px 28px; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--cond); font-weight: 600; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.lede { max-width: 66ch; margin: 0; color: var(--ink-2); font-size: 17px; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; padding-block: 16px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+nav.toc a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid transparent; }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); border-bottom-color: var(--ink-2); outline: none; }
+nav.toc b { font-family: var(--mono); font-weight: 500; color: var(--muted); margin-right: 5px; font-size: 12px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; padding-block: 18px 0; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 16px; height: 12px; border-radius: 2px; border: 1.5px solid; display: inline-block; }
+.sw.code { background: var(--code-bg); border-color: var(--code); }
+.sw.ai { background: var(--ai-bg); border-color: var(--ai); }
+.sw.ext { background: var(--ext-bg); border-color: var(--ext); }
+.sw.store { background: var(--store-bg); border-color: var(--store); }
+.sw.plan { background: transparent; border-color: var(--muted); border-style: dashed; }
+
+section { padding-block: 52px 8px; display: grid; gap: 16px; }
+section > header { display: grid; gap: 6px; }
+h2 { font-family: var(--cond); font-weight: 600; font-size: 28px; line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 .n { font-family: var(--mono); font-weight: 400; font-size: 15px; color: var(--muted); margin-right: 10px; vertical-align: 4px; }
+section p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+.pill { display: inline-block; font-family: var(--mono); font-size: 11.5px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); vertical-align: 5px; margin-left: 8px; letter-spacing: .02em; }
+.pill.plan { border-style: dashed; }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.scroll { overflow-x: auto; padding: 18px 18px 8px; }
+figure svg { display: block; width: 100%; height: auto; min-width: 720px; }
+figcaption { padding: 4px 18px 16px; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
+
+.code-refs { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); align-items: baseline; }
+.code-refs b { font-weight: 500; color: var(--ink-2); }
+.code-refs code { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; }
+
+.rules { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.rules li { background: var(--surface); padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.rules .ref { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.rules strong { font-weight: 600; font-size: 15px; }
+.rules span { font-size: 14px; color: var(--ink-2); }
+
+/* SVG styling, driven by the page tokens so both themes work */
+svg text { font-family: var(--sans); font-size: 12.5px; fill: var(--ink); }
+svg .t-h { font-weight: 600; font-size: 13.5px; }
+svg .t-s { fill: var(--muted); font-size: 11.5px; }
+svg .t-m { font-family: var(--mono); font-size: 11.5px; fill: var(--ink-2); }
+svg .t-bad { fill: var(--bad); font-size: 11.5px; }
+svg .t-lbl { fill: var(--ink-2); font-size: 11.5px; }
+svg .n { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.2; }
+svg .n-code { fill: var(--code-bg); stroke: var(--code); stroke-width: 1.4; }
+svg .n-ai { fill: var(--ai-bg); stroke: var(--ai); stroke-width: 1.4; }
+svg .n-ext { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.4; }
+svg .n-store { fill: var(--store-bg); stroke: var(--store); stroke-width: 1.4; }
+svg .n-bad { fill: var(--bad-bg); stroke: var(--bad); stroke-width: 1.4; }
+svg .chip { fill: var(--surface); stroke: var(--store); stroke-width: 1; }
+svg .sub { fill: var(--surface); stroke: var(--code); stroke-width: 1; }
+svg .planned { stroke-dasharray: 6 4; }
+svg .a { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+svg .a-ext { stroke: var(--ext); }
+svg .a-ai { stroke: var(--ai); }
+svg .a-code { stroke: var(--code); }
+svg .a-store { stroke: var(--store); }
+svg .ret { stroke-dasharray: 4 3; }
+svg .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 4; }
+svg .mk { fill: var(--ink-2); }
+svg .mk-ext { fill: var(--ext); }
+svg .mk-ai { fill: var(--ai); }
+svg .mk-code { fill: var(--code); }
+svg .mk-store { fill: var(--store); }
+
+/* Workflow matrix */
+.matrix { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; }
+.matrix th, .matrix td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: center; }
+.matrix thead th { font-family: var(--mono); font-weight: 400; font-size: 11.5px; color: var(--ink-2); vertical-align: bottom; white-space: nowrap; }
+.matrix thead tr.groups th { font-family: var(--sans); font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid; padding-bottom: 4px; }
+.matrix thead tr.groups th.g-snap { border-color: var(--ext); }
+.matrix thead tr.groups th.g-db { border-color: var(--store); }
+.matrix thead tr.groups th.g-comp { border-color: var(--code); }
+.matrix tbody th { text-align: left; font-family: var(--mono); font-weight: 500; font-size: 12.5px; white-space: nowrap; padding-right: 14px; }
+.matrix tbody th small { display: block; font-family: var(--sans); font-weight: 400; color: var(--muted); font-size: 12px; white-space: normal; }
+.step { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.step.s-snap { background: var(--ext-bg); color: var(--ext); border: 1px solid var(--ext); }
+.step.s-db { background: var(--store-bg); color: var(--store); border: 1px solid var(--store); }
+.step.s-comp { background: var(--code-bg); color: var(--code); border: 1px solid var(--code); }
+.matrix td.note { text-align: left; color: var(--muted); font-size: 12px; }
+
+/* Roadmap */
+.road { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.road li { display: grid; grid-template-columns: 64px 1fr auto; gap: 4px 18px; padding: 14px 18px; border-top: 1px solid var(--line); align-items: baseline; }
+.road li:first-child { border-top: 0; }
+.road .ph { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.road .what strong { display: block; font-weight: 600; }
+.road .what span { font-size: 13.5px; color: var(--muted); }
+.road .st { font-family: var(--mono); font-size: 12px; padding: 2px 9px; border-radius: 99px; white-space: nowrap; border: 1px solid; }
+.st.done { color: var(--code); border-color: var(--code); background: var(--code-bg); }
+.st.part { color: var(--ai); border-color: var(--ai); background: var(--ai-bg); }
+.st.now { color: var(--ext); border-color: var(--ext); background: var(--ext-bg); }
+.st.todo { color: var(--muted); border-color: var(--line); border-style: dashed; }
+.road li.current { background: var(--ext-bg); }
+@media (max-width: 560px) {
+  .road li { grid-template-columns: 44px 1fr; }
+  .road .st { grid-column: 2; justify-self: start; }
+}
+footer { padding-block: 48px 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 48px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<!-- Shared arrowheads for every diagram on the page -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="m-ext" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-ext" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="m-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-ai" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="m-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-code" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="m-store" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-store" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Personal Finance Guru · system guide · as of 5 Oct 2026</div>
+  <h1>How Jolly works</h1>
+  <p class="lede">The app reads your accounts and computes every figure in plain, tested code. Then an AI coach named Jolly explains the results. The diagrams below follow a request through the system: where data comes from, what runs, where the AI is allowed in, and what gets stored.</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#rules"><b>00</b>Five rules</a>
+  <a href="#map"><b>01</b>System map</a>
+  <a href="#turn"><b>02</b>One chat turn</a>
+  <a href="#guard"><b>03</b>The figure guard</a>
+  <a href="#workflows"><b>04</b>Six workflows</a>
+  <a href="#storage"><b>05</b>What is stored</a>
+  <a href="#import"><b>06</b>Document import</a>
+  <a href="#roadmap"><b>07</b>Roadmap</a>
+</nav>
+
+<div class="legend" aria-label="Colour key used by every diagram">
+  <span><i class="sw code"></i>Deterministic code</span>
+  <span><i class="sw ai"></i>AI model call</span>
+  <span><i class="sw ext"></i>External service / live data</span>
+  <span><i class="sw store"></i>Stored in Postgres</span>
+  <span><i class="sw plan"></i>Planned (Phase 2)</span>
+</div>
+
+<!-- 00 RULES -->
+<section id="rules">
+  <header>
+    <h2><span class="n">00</span>Five rules every part of the system follows</h2>
+    <p>Each diagram is a consequence of these rules. If something in the code looks odd, one of these is usually the reason. The section numbers point into <code>CLAUDE.md</code>.</p>
+  </header>
+  <ul class="rules">
+    <li><span class="ref">§0.1</span><strong>The AI never computes a number</strong><span>Code computes every figure. The model only explains them, and a check rejects any figure it invents.</span></li>
+    <li><span class="ref">§0.2</span><strong>Every figure shows its source</strong><span>Each result carries which accounts it used, when the data was fetched, and the math applied. The "why" cards display this.</span></li>
+    <li><span class="ref">§0.3</span><strong>Money is integer cents</strong><span>Amounts are stored as whole numbers of cents (bigint), never floats. One function does the conversion, on the server.</span></li>
+    <li><span class="ref">§0.4</span><strong>Never keep a copy Plaid already holds</strong><span>Balances and transactions are fetched fresh for each request, then thrown away.</span></li>
+    <li><span class="ref">§0.6</span><strong>Questions map to fixed pipelines</strong><span>The AI picks which of six pipelines to run. It never chooses tools or calculations.</span></li>
+  </ul>
+</section>
+
+<!-- 01 MAP -->
+<section id="map">
+  <header>
+    <h2><span class="n">01</span>System map</h2>
+    <p>One shared <code>core</code> package does all the work. The web app and a local MCP server both call it, so neither duplicates any logic. Data reaches <code>core</code> through a snapshot that exists only in memory for the length of one request.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 545" role="img" aria-label="Plaid data is fetched live into an in-memory session snapshot, which the core package reads. The web app and MCP server both call core. The web app calls Anthropic. Postgres holds tokens, user context and net worth history, never Plaid balances or transactions. Documents and a manual ledger are planned for Phase 2.">
+      <!-- Sources -->
+      <rect class="n-ext" x="20" y="44" width="190" height="78" rx="5"/>
+      <text class="t-h" x="115" y="70" text-anchor="middle">Plaid (sandbox)</text>
+      <text class="t-s" x="115" y="90" text-anchor="middle">balances, holdings,</text>
+      <text class="t-s" x="115" y="106" text-anchor="middle">90 days of transactions</text>
+
+      <rect class="n planned" x="20" y="160" width="190" height="66" rx="5"/>
+      <text class="t-h" x="115" y="186" text-anchor="middle">Your CSV / PDF statements</text>
+      <text class="t-s" x="115" y="206" text-anchor="middle">Phase 2 · planned</text>
+
+      <!-- Snapshot -->
+      <rect class="n" x="265" y="44" width="170" height="128" rx="5"/>
+      <text class="t-h" x="350" y="72" text-anchor="middle">Session snapshot</text>
+      <text class="t-s" x="350" y="94" text-anchor="middle">in memory only</text>
+      <text class="t-s" x="350" y="112" text-anchor="middle">rebuilt every request</text>
+      <text class="t-s" x="350" y="130" text-anchor="middle">discarded at the end</text>
+      <text class="t-m" x="350" y="156" text-anchor="middle">packages/plaid</text>
+
+      <line class="a a-ext" x1="210" y1="83" x2="262" y2="83" marker-end="url(#m-ext)"/>
+      <text class="t-lbl" x="236" y="75" text-anchor="middle">fetch</text>
+
+      <!-- Core -->
+      <rect class="n-code" x="490" y="30" width="200" height="322" rx="6"/>
+      <text class="t-m" x="505" y="54" style="font-weight:500;fill:var(--code)">packages/core</text>
+      <rect class="sub" x="505" y="68" width="170" height="54" rx="4"/>
+      <text class="t-h" x="590" y="91" text-anchor="middle">Aggregation tools</text>
+      <text class="t-s" x="590" y="109" text-anchor="middle">listAccounts, getBalances…</text>
+      <rect class="sub" x="505" y="132" width="170" height="54" rx="4"/>
+      <text class="t-h" x="590" y="155" text-anchor="middle">Compute functions</text>
+      <text class="t-s" x="590" y="173" text-anchor="middle">netWorth, cashFlow, FIRE…</text>
+      <rect class="sub" x="505" y="196" width="170" height="54" rx="4"/>
+      <text class="t-h" x="590" y="219" text-anchor="middle">Six fixed workflows</text>
+      <text class="t-s" x="590" y="237" text-anchor="middle">question type → tool list</text>
+      <rect class="sub" x="505" y="260" width="170" height="78" rx="4"/>
+      <text class="t-h" x="590" y="283" text-anchor="middle">Guardrails for the AI</text>
+      <text class="t-s" x="590" y="301" text-anchor="middle">router's fixed options</text>
+      <text class="t-s" x="590" y="317" text-anchor="middle">figure check</text>
+
+      <line class="a" x1="435" y1="108" x2="487" y2="108" marker-end="url(#m)"/>
+      <text class="t-lbl" x="461" y="100" text-anchor="middle">read</text>
+
+      <!-- Front doors -->
+      <rect class="n" x="770" y="30" width="170" height="86" rx="5"/>
+      <text class="t-h" x="855" y="56" text-anchor="middle">Web app (Next.js)</text>
+      <text class="t-s" x="855" y="76" text-anchor="middle">dashboard · chat</text>
+      <text class="t-s" x="855" y="93" text-anchor="middle">why cards · network panel</text>
+      <text class="t-m" x="855" y="108" text-anchor="middle" style="font-size:10.5px">apps/web</text>
+
+      <rect class="n-ai" x="770" y="162" width="170" height="78" rx="5"/>
+      <text class="t-h" x="855" y="188" text-anchor="middle">Anthropic API</text>
+      <text class="t-s" x="855" y="208" text-anchor="middle">Haiku routes the question</text>
+      <text class="t-s" x="855" y="225" text-anchor="middle">Sonnet writes the answer</text>
+
+      <rect class="n" x="770" y="282" width="170" height="70" rx="5"/>
+      <text class="t-h" x="855" y="306" text-anchor="middle">MCP server</text>
+      <text class="t-s" x="855" y="325" text-anchor="middle">local test harness,</text>
+      <text class="t-s" x="855" y="341" text-anchor="middle">driven by Claude Code</text>
+
+      <line class="a a-code" x1="690" y1="72" x2="767" y2="72" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="729" y="64" text-anchor="middle">workflows</text>
+      <line class="a a-ai" x1="855" y1="116" x2="855" y2="159" marker-end="url(#m-ai)"/>
+      <text class="t-lbl" x="862" y="142">route · narrate</text>
+      <line class="a a-code" x1="690" y1="317" x2="767" y2="317" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="729" y="309" text-anchor="middle">atomic tools</text>
+
+      <!-- Postgres -->
+      <rect class="n-store" x="20" y="396" width="670" height="132" rx="6"/>
+      <text class="t-h" x="36" y="419">Postgres</text>
+      <text class="t-s" x="104" y="419">what is kept</text>
+      <rect class="chip planned" x="36" y="432" width="200" height="34" rx="4"/>
+      <text x="136" y="453" text-anchor="middle">documents + manual ledger</text>
+      <rect class="chip" x="250" y="432" width="210" height="34" rx="4"/>
+      <text x="355" y="453" text-anchor="middle">plaid_items · token encrypted</text>
+      <rect class="chip" x="474" y="432" width="200" height="34" rx="4"/>
+      <text x="574" y="453" text-anchor="middle">networth_snapshots (derived)</text>
+      <rect class="chip" x="250" y="476" width="210" height="34" rx="4"/>
+      <text x="355" y="497" text-anchor="middle">profile · goals · notes</text>
+      <rect class="chip" x="474" y="476" width="200" height="34" rx="4"/>
+      <text x="574" y="497" text-anchor="middle">insight_log · no writer yet</text>
+      <text class="t-bad" x="36" y="490" style="font-weight:600">Never stored:</text>
+      <text class="t-bad" x="36" y="507">Plaid balances, holdings, txns</text>
+
+      <!-- Planned manual path -->
+      <line class="a planned" x1="115" y1="226" x2="115" y2="429" marker-end="url(#m)"/>
+      <text class="t-lbl" x="123" y="322">parse, review,</text>
+      <text class="t-lbl" x="123" y="338">commit</text>
+      <path class="a planned" d="M222,432 V296 H350 V175" marker-end="url(#m)"/>
+      <text class="t-lbl" x="286" y="288" text-anchor="middle">read</text>
+
+      <!-- core ↔ Postgres -->
+      <line class="a a-store" x1="590" y1="352" x2="590" y2="393" marker-end="url(#m-store)"/>
+      <text class="t-lbl" x="598" y="378">reads context · appends net worth</text>
+    </svg>
+    </div>
+    <figcaption>Plaid's data has no stored form, because the only arrow that touches Postgres from the live side writes a derived net-worth figure. Dashed parts are the Phase 2 manual source. Statements have no outside system holding them, so they are stored, and the snapshot then merges both sources.</figcaption>
+  </figure>
+  <div class="code-refs"><b>In the code</b><code>packages/core</code><code>packages/plaid/src/fetchSnapshot.ts</code><code>apps/web/src/server/session.ts</code><code>apps/mcp/src/server.ts</code><code>packages/db/src/schema.ts</code></div>
+</section>
+
+<!-- 02 TURN -->
+<section id="turn">
+  <header>
+    <h2><span class="n">02</span>One chat turn, start to finish</h2>
+    <p>Every question repeats the whole trip: a fresh Plaid fetch, a routing call, a fixed pipeline, an answer, and a check on that answer. Nothing is cached between turns. The network panel under each answer shows this same sequence with real timings.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 660" role="img" aria-label="Sequence of one chat turn: the browser posts a question; the route authenticates with Clerk; fetches three Plaid endpoints into an in-memory snapshot; asks Haiku to pick one of six workflows; runs the fixed pipeline in core to build an evidence bundle; asks Sonnet to narrate it; checks every figure in the draft against the bundle, retrying once and then withholding; and returns answer, bundle and trace to the browser.">
+      <!-- Lane heads -->
+      <rect class="n" x="15" y="14" width="130" height="42" rx="5"/><text class="t-h" x="80" y="40" text-anchor="middle">Browser</text>
+      <rect class="n" x="195" y="14" width="150" height="42" rx="5"/><text class="t-m" x="270" y="40" text-anchor="middle" style="font-weight:500">POST /api/chat</text>
+      <rect class="n-ext" x="400" y="14" width="140" height="42" rx="5"/><text class="t-h" x="470" y="40" text-anchor="middle">Plaid</text>
+      <rect class="n-code" x="585" y="14" width="150" height="42" rx="5"/><text class="t-h" x="660" y="40" text-anchor="middle">core</text>
+      <rect class="n-ai" x="790" y="14" width="140" height="42" rx="5"/><text class="t-h" x="860" y="40" text-anchor="middle">Anthropic</text>
+      <line class="life" x1="80" y1="56" x2="80" y2="645"/>
+      <line class="life" x1="270" y1="56" x2="270" y2="645"/>
+      <line class="life" x1="470" y1="56" x2="470" y2="645"/>
+      <line class="life" x1="660" y1="56" x2="660" y2="645"/>
+      <line class="life" x1="860" y1="56" x2="860" y2="645"/>
+
+      <!-- 1 ask -->
+      <line class="a" x1="80" y1="96" x2="267" y2="96" marker-end="url(#m)"/>
+      <text class="t-lbl" x="175" y="88" text-anchor="middle">question + last turns</text>
+      <!-- 2 auth -->
+      <rect class="n" x="205" y="116" width="130" height="28" rx="4"/>
+      <text class="t-lbl" x="270" y="134" text-anchor="middle">Clerk → userId</text>
+
+      <!-- 3 plaid -->
+      <line class="a a-ext" x1="270" y1="180" x2="467" y2="180" marker-end="url(#m-ext)"/>
+      <text class="t-m" x="368" y="172" text-anchor="middle">/accounts/balance/get</text>
+      <text class="t-s" x="478" y="184">1,821 ms</text>
+      <line class="a a-ext" x1="270" y1="214" x2="467" y2="214" marker-end="url(#m-ext)"/>
+      <text class="t-m" x="368" y="206" text-anchor="middle">/investments/holdings/get</text>
+      <text class="t-s" x="478" y="218">439 ms</text>
+      <line class="a a-ext" x1="270" y1="248" x2="467" y2="248" marker-end="url(#m-ext)"/>
+      <text class="t-m" x="368" y="240" text-anchor="middle">/transactions/get · 90 days</text>
+      <text class="t-s" x="478" y="252">640 ms</text>
+      <line class="a a-ext ret" x1="470" y1="280" x2="273" y2="280" marker-end="url(#m-ext)"/>
+      <text class="t-lbl" x="368" y="296" text-anchor="middle">snapshot, held in memory</text>
+
+      <!-- 4 route -->
+      <line class="a a-ai" x1="270" y1="336" x2="857" y2="336" marker-end="url(#m-ai)"/>
+      <text class="t-lbl" x="565" y="328" text-anchor="middle">Haiku: pick 1 of 6 workflows (schema-constrained)</text>
+      <line class="a a-ai ret" x1="860" y1="362" x2="273" y2="362" marker-end="url(#m-ai)"/>
+      <text class="t-lbl" x="565" y="378" text-anchor="middle">workflow + period, e.g. "last_month"</text>
+
+      <!-- 5 run -->
+      <line class="a a-code" x1="270" y1="414" x2="657" y2="414" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="465" y="406" text-anchor="middle">run the fixed pipeline (dates resolved first)</text>
+      <line class="a a-code ret" x1="660" y1="440" x2="273" y2="440" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="465" y="456" text-anchor="middle">evidence bundle: every figure + its source</text>
+
+      <!-- 6 narrate -->
+      <line class="a a-ai" x1="270" y1="492" x2="857" y2="492" marker-end="url(#m-ai)"/>
+      <text class="t-lbl" x="565" y="484" text-anchor="middle">Sonnet: narrate the bundle</text>
+      <line class="a a-ai ret" x1="860" y1="518" x2="273" y2="518" marker-end="url(#m-ai)"/>
+      <text class="t-lbl" x="565" y="534" text-anchor="middle">draft answer (buffered, not yet shown)</text>
+
+      <!-- 7 guard -->
+      <line class="a a-code" x1="270" y1="570" x2="657" y2="570" marker-end="url(#m-code)"/>
+      <text class="t-m" x="465" y="562" text-anchor="middle">checkAttribution(draft)</text>
+      <line class="a a-code ret" x1="660" y1="594" x2="273" y2="594" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="465" y="610" text-anchor="middle">clean, or the figures it couldn't trace</text>
+      <rect class="n-ai" x="700" y="552" width="245" height="50" rx="4"/>
+      <text class="t-lbl" x="822" y="572" text-anchor="middle">Untraceable figure? One Sonnet</text>
+      <text class="t-lbl" x="822" y="589" text-anchor="middle">retry, then the answer is withheld.</text>
+
+      <!-- 8 reply -->
+      <line class="a ret" x1="270" y1="632" x2="83" y2="632" marker-end="url(#m)"/>
+      <text class="t-lbl" x="175" y="624" text-anchor="middle">answer + bundle + trace</text>
+      <text class="t-s" x="282" y="636">snapshot discarded</text>
+    </svg>
+    </div>
+    <figcaption>Solid arrows are calls; dashed arrows are what comes back. The Plaid timings come from one recorded sandbox run, and the model calls vary. The answer is buffered rather than streamed to the browser, so no figure appears on screen before the check has passed it.</figcaption>
+  </figure>
+  <div class="code-refs"><b>In the code</b><code>apps/web/src/app/api/chat/route.ts</code><code>apps/web/src/server/agent.ts</code><code>packages/core/src/agent/router.ts</code><code>packages/core/src/trace.ts</code></div>
+</section>
+
+<!-- 03 GUARD -->
+<section id="guard">
+  <header>
+    <h2><span class="n">03</span>The figure guard: how a number reaches the screen</h2>
+    <p>The AI may only repeat figures that the code has already formatted. The guard collects every dollar amount and percentage in the AI's draft and looks each one up in that set. Anything it can't match counts as either a hallucination or the AI doing its own math.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 300" role="img" aria-label="A balance travels from Plaid, is normalized into integer cents, computed into a result with provenance, and formatted by humanize into the set of figures Jolly may say. Sonnet's draft is checked against that set: a clean draft is shown, a stray figure triggers one retry, and a second stray figure withholds the answer.">
+      <rect class="n-ext" x="20" y="30" width="165" height="82" rx="5"/>
+      <text class="t-h" x="102" y="54" text-anchor="middle">Plaid returns</text>
+      <text class="t-m" x="102" y="76" text-anchor="middle">current: 65262.0</text>
+      <text class="t-s" x="102" y="96" text-anchor="middle">a JSON float</text>
+
+      <rect class="n-code" x="207" y="30" width="165" height="82" rx="5"/>
+      <text class="t-h" x="289" y="54" text-anchor="middle">Normalize</text>
+      <text class="t-m" x="289" y="76" text-anchor="middle">6526200n</text>
+      <text class="t-s" x="289" y="96" text-anchor="middle">integer cents</text>
+
+      <rect class="n-code" x="394" y="30" width="165" height="82" rx="5"/>
+      <text class="t-h" x="476" y="54" text-anchor="middle">Compute tool</text>
+      <text class="t-m" x="476" y="76" text-anchor="middle">{ data, provenance }</text>
+      <text class="t-s" x="476" y="96" text-anchor="middle">netWorth, cashFlow…</text>
+
+      <rect class="n-code" x="581" y="30" width="165" height="82" rx="5"/>
+      <text class="t-h" x="663" y="54" text-anchor="middle">humanize()</text>
+      <text class="t-m" x="663" y="76" text-anchor="middle">$65,262.00</text>
+      <text class="t-s" x="663" y="96" text-anchor="middle">all Jolly may say</text>
+
+      <rect class="n-ai" x="768" y="30" width="172" height="82" rx="5"/>
+      <text class="t-h" x="854" y="54" text-anchor="middle">Sonnet's draft</text>
+      <text class="t-lbl" x="854" y="76" text-anchor="middle">"your student loan</text>
+      <text class="t-lbl" x="854" y="93" text-anchor="middle">is $65,262"</text>
+
+      <line class="a a-code" x1="185" y1="71" x2="204" y2="71" marker-end="url(#m-code)"/>
+      <line class="a a-code" x1="372" y1="71" x2="391" y2="71" marker-end="url(#m-code)"/>
+      <line class="a a-code" x1="559" y1="71" x2="578" y2="71" marker-end="url(#m-code)"/>
+      <line class="a a-ai" x1="746" y1="71" x2="765" y2="71" marker-end="url(#m-ai)"/>
+
+      <!-- Guard -->
+      <rect class="n-code" x="440" y="180" width="290" height="74" rx="6" style="stroke-width:2"/>
+      <text class="t-m" x="585" y="204" text-anchor="middle" style="font-weight:500;fill:var(--ink)">checkAttribution()</text>
+      <text class="t-s" x="585" y="224" text-anchor="middle">every $ and % in the draft must</text>
+      <text class="t-s" x="585" y="240" text-anchor="middle">match a figure humanize() produced</text>
+
+      <line class="a a-code" x1="663" y1="112" x2="663" y2="177" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="655" y="150" text-anchor="end">allowed set</text>
+      <path class="a a-ai" d="M854,112 V217 H733" marker-end="url(#m-ai)"/>
+      <text class="t-lbl" x="862" y="150">figures found</text>
+
+      <!-- Outcomes -->
+      <rect class="n-code" x="40" y="160" width="330" height="34" rx="17"/>
+      <text x="205" y="182" text-anchor="middle">All figures traced → answer shown</text>
+      <rect class="n-ai" x="40" y="200" width="330" height="34" rx="17"/>
+      <text x="205" y="222" text-anchor="middle">A stray figure → one retry, naming it</text>
+      <rect class="n-bad" x="40" y="240" width="330" height="34" rx="17"/>
+      <text x="205" y="262" text-anchor="middle">Still stray → answer withheld</text>
+      <path class="a" d="M440,212 L373,177" marker-end="url(#m)"/>
+      <path class="a" d="M440,217 L373,217" marker-end="url(#m)"/>
+      <path class="a" d="M440,222 L373,257" marker-end="url(#m)"/>
+    </svg>
+    </div>
+    <figcaption>Debts follow a sign rule. Net worth counts this loan as −$65,262, but people say "$65,262", so the bundle carries both forms. Any new signed figure has to do the same, or the guard will reject correct sentences. In a live test, asking for "net worth minus my mortgage" got a refusal rather than the AI doing the subtraction.</figcaption>
+  </figure>
+  <div class="code-refs"><b>In the code</b><code>packages/core/src/agent/attribution.ts</code><code>packages/core/src/present.ts</code><code>packages/core/src/money.ts</code><code>packages/core/src/provenance.ts</code></div>
+</section>
+
+<!-- 04 WORKFLOWS -->
+<section id="workflows">
+  <header>
+    <h2><span class="n">04</span>Six workflows, each a fixed sequence</h2>
+    <p>The router can only choose a row in this table; the steps in each row are fixed in code. If the router picks the wrong row, Jolly answers the wrong question, but every figure is still computed correctly. A question that spans two rows is answered from one, and Jolly says what that row doesn't cover.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <table class="matrix">
+      <thead>
+        <tr class="groups">
+          <th></th>
+          <th colspan="4" class="g-snap">Read the snapshot</th>
+          <th class="g-db">Read Postgres</th>
+          <th colspan="6" class="g-comp">Compute</th>
+          <th></th>
+        </tr>
+        <tr>
+          <th></th>
+          <th>listAccounts</th><th>getBalances</th><th>getHoldings</th><th>getTransactions</th>
+          <th>getUserContext</th>
+          <th>netWorth</th><th>assetAllocation</th><th>fireProgress</th><th>spendingByCategory</th><th>cashFlow</th><th>savingsRate</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>summary_overview<small>"How am I doing?" and the dashboard</small></th>
+          <td><i class="step s-snap">1</i></td><td><i class="step s-snap">2</i></td><td></td><td></td>
+          <td></td>
+          <td><i class="step s-comp">3</i></td><td><i class="step s-comp">4</i></td><td><i class="step s-comp">5</i></td><td></td><td></td><td></td>
+          <td class="note">also saves today's net worth</td>
+        </tr>
+        <tr>
+          <th>spending_analysis<small>"Where did my money go last month?"</small></th>
+          <td></td><td></td><td></td><td><i class="step s-snap">1</i></td>
+          <td></td>
+          <td></td><td></td><td></td><td><i class="step s-comp">2</i></td><td><i class="step s-comp">3</i></td><td><i class="step s-comp">4</i></td>
+          <td></td>
+        </tr>
+        <tr>
+          <th>investment_review<small>"What's my allocation?"</small></th>
+          <td></td><td></td><td><i class="step s-snap">1</i></td><td></td>
+          <td></td>
+          <td></td><td><i class="step s-comp">2</i></td><td></td><td></td><td></td><td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <th>goal_progress<small>"How close am I to FIRE?"</small></th>
+          <td></td><td></td><td></td><td></td>
+          <td><i class="step s-db">1</i></td>
+          <td><i class="step s-comp">2</i></td><td></td><td><i class="step s-comp">3</i></td><td></td><td></td><td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <th>transaction_lookup<small>"What did I spend at Starbucks?"</small></th>
+          <td></td><td></td><td></td><td><i class="step s-snap">1</i></td>
+          <td></td>
+          <td></td><td></td><td></td><td></td><td></td><td></td>
+          <td class="note">filtered by category / dates</td>
+        </tr>
+        <tr>
+          <th>general_qa<small>Anything else, answered narrowly</small></th>
+          <td><i class="step s-snap">1</i></td><td></td><td></td><td></td>
+          <td><i class="step s-db">2</i></td>
+          <td></td><td></td><td></td><td></td><td></td><td></td>
+          <td class="note">fallback</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <figcaption>The numbers give each workflow's order of steps. If routing fails, the turn falls back to <code>summary_overview</code> instead of returning an error. <code>fireProgress</code> needs a spending target, and if none is set, the other steps still run and the answer says the target is missing.</figcaption>
+  </figure>
+  <div class="code-refs"><b>In the code</b><code>packages/core/src/workflows/</code><code>packages/core/src/compute/</code><code>packages/core/src/tools/aggregation.ts</code></div>
+</section>
+
+<!-- 05 STORAGE -->
+<section id="storage">
+  <header>
+    <h2><span class="n">05</span>What is stored, and how that is decided</h2>
+    <p>One question settles whether any piece of data may be stored. It is designed to give the same answer whoever asks it.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 330" role="img" aria-label="Decision: can we fetch this again on demand from someone else? If yes, it is held in memory for one request only: Plaid balances, holdings, transactions, the snapshot, the evidence bundle and the network trace. If no, it is stored in Postgres scoped to the user: the encrypted Plaid token, profile, goals and notes, net worth history, and in Phase 2 the encrypted documents and manual ledger.">
+      <rect class="n" x="270" y="16" width="420" height="62" rx="6" style="stroke-width:2"/>
+      <text class="t-h" x="480" y="42" text-anchor="middle" style="font-size:15px">Can we fetch it again, on demand,</text>
+      <text class="t-h" x="480" y="62" text-anchor="middle" style="font-size:15px">from somewhere else?</text>
+
+      <path class="a a-ext" d="M380,78 L250,128" marker-end="url(#m-ext)"/>
+      <text class="t-h" x="300" y="100" style="fill:var(--ext)">Yes</text>
+      <path class="a a-store" d="M580,78 L710,128" marker-end="url(#m-store)"/>
+      <text class="t-h" x="652" y="100" style="fill:var(--store)">No</text>
+
+      <rect class="n-ext" x="20" y="132" width="440" height="180" rx="6"/>
+      <text class="t-h" x="40" y="160">Held in memory for one request, then gone</text>
+      <text x="40" y="188">· Plaid balances, holdings and transactions</text>
+      <text x="40" y="212">· the session snapshot built from them</text>
+      <text x="40" y="236">· the evidence bundle behind each "why" card</text>
+      <text x="40" y="260">· the network trace shown in each panel</text>
+      <text class="t-s" x="40" y="292">Shrinks what a breach could expose. The cost: each turn pays a Plaid round trip.</text>
+
+      <rect class="n-store" x="500" y="132" width="440" height="180" rx="6"/>
+      <text class="t-h" x="520" y="160">Stored in Postgres, scoped to your user</text>
+      <text x="520" y="188">· Plaid access token (encrypted, never the data)</text>
+      <text x="520" y="212">· profile, goals and notes: things you typed</text>
+      <text x="520" y="236">· net worth history (yesterday can't be refetched)</text>
+      <text x="520" y="260">· documents + manual ledger (Phase 2, encrypted)</text>
+      <text class="t-s" x="520" y="292">Every query filters by userId. Documents use their own encryption key.</text>
+    </svg>
+    </div>
+    <figcaption>Uploaded statements land on the "No" side: nothing else holds them, so the app stores them, encrypted and deletable. That doesn't make it acceptable to start mirroring Plaid's data, because the answer to the question for Plaid is still "Yes".</figcaption>
+  </figure>
+  <div class="code-refs"><b>In the code</b><code>packages/db/src/schema.ts</code><code>packages/db/src/crypto.ts</code><code>packages/core/src/tools/aggregates.ts</code></div>
+</section>
+
+<!-- 06 IMPORT -->
+<section id="import">
+  <header>
+    <h2><span class="n">06</span>Document import <span class="pill plan">Phase 2 · planned</span></h2>
+    <p>This is how real data will arrive while Plaid stays in sandbox. The expensive work happens once, at import. After that, statement data is read from the ledger like any other source. No row reaches the ledger until a person has confirmed it.</p>
+  </header>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 300" role="img" aria-label="Planned import pipeline: upload, which encrypts and deduplicates by hash; parse into a draft; human review; then one-transaction commit to the manual ledger. PDFs branch: extract the text layer, have a model transcribe verbatim strings, and drop any string not found in the text before review.">
+      <rect class="n planned" x="20" y="36" width="200" height="90" rx="5"/>
+      <text class="t-h" x="120" y="62" text-anchor="middle">1 · Upload</text>
+      <text class="t-s" x="120" y="84" text-anchor="middle">encrypted at rest</text>
+      <text class="t-s" x="120" y="101" text-anchor="middle">sha256 catches re-uploads</text>
+
+      <rect class="n-code planned" x="260" y="36" width="200" height="90" rx="5"/>
+      <text class="t-h" x="360" y="62" text-anchor="middle">2 · Parse to a draft</text>
+      <text class="t-s" x="360" y="84" text-anchor="middle">CSV: plain code</text>
+      <text class="t-s" x="360" y="101" text-anchor="middle">PDF: see below</text>
+
+      <rect class="n planned" x="500" y="36" width="200" height="90" rx="5"/>
+      <text class="t-h" x="600" y="62" text-anchor="middle">3 · You review</text>
+      <text class="t-s" x="600" y="84" text-anchor="middle">every row confirmed</text>
+      <text class="t-s" x="600" y="101" text-anchor="middle">"$4.85 spent at Starbucks?"</text>
+
+      <rect class="n-store planned" x="740" y="36" width="200" height="90" rx="5"/>
+      <text class="t-h" x="840" y="62" text-anchor="middle">4 · Commit</text>
+      <text class="t-s" x="840" y="84" text-anchor="middle">one DB transaction</text>
+      <text class="t-s" x="840" y="101" text-anchor="middle">into the manual ledger</text>
+
+      <line class="a" x1="220" y1="81" x2="257" y2="81" marker-end="url(#m)"/>
+      <line class="a" x1="460" y1="81" x2="497" y2="81" marker-end="url(#m)"/>
+      <line class="a" x1="700" y1="81" x2="737" y2="81" marker-end="url(#m)"/>
+
+      <!-- PDF branch -->
+      <rect class="n-code planned" x="180" y="196" width="200" height="74" rx="5"/>
+      <text class="t-h" x="280" y="222" text-anchor="middle">Extract the text layer</text>
+      <text class="t-s" x="280" y="243" text-anchor="middle">no OCR: scans are rejected</text>
+
+      <rect class="n-ai planned" x="420" y="196" width="200" height="74" rx="5"/>
+      <text class="t-h" x="520" y="222" text-anchor="middle">Model transcribes</text>
+      <text class="t-s" x="520" y="243" text-anchor="middle">verbatim strings, not numbers</text>
+
+      <rect class="n-code planned" x="660" y="196" width="200" height="74" rx="5" style="stroke-width:2"/>
+      <text class="t-m" x="760" y="222" text-anchor="middle" style="font-weight:500;fill:var(--ink)">checkTranscription()</text>
+      <text class="t-s" x="760" y="243" text-anchor="middle">not in the text → dropped</text>
+
+      <line class="a" x1="330" y1="126" x2="330" y2="193" marker-end="url(#m)"/>
+      <text class="t-lbl" x="338" y="166">PDF</text>
+      <line class="a" x1="380" y1="233" x2="417" y2="233" marker-end="url(#m)"/>
+      <line class="a" x1="620" y1="233" x2="657" y2="233" marker-end="url(#m)"/>
+      <path class="a a-code" d="M720,196 V160 H620 V129" marker-end="url(#m-code)"/>
+      <text class="t-lbl" x="728" y="174">surviving rows</text>
+    </svg>
+    </div>
+    <figcaption>Two risks shape this design. First, sign conventions: Plaid treats money leaving an account as positive, while most bank CSVs treat it as negative. Getting this backwards flips the savings rate without any error, so the review step restates each sample row as a plain sentence. Second, the AI reading a PDF may only copy strings it finds in the text. Code converts them to cents, and a person confirms each row.</figcaption>
+  </figure>
+  <div class="code-refs"><b>Spec</b><code>docs/PHASE-2-INGESTION.md</code><code>CLAUDE.md §0.8, §7b</code></div>
+</section>
+
+<!-- 07 ROADMAP -->
+<section id="roadmap">
+  <header>
+    <h2><span class="n">07</span>Roadmap</h2>
+    <p>Each phase now ends in the checkpoint with the same number. Older commits still use the previous numbering, where checkpoints ran one ahead of their phases.</p>
+  </header>
+  <ol class="road">
+    <li><span class="ph">0</span><span class="what"><strong>Foundations and the data pipe</strong><span>Checkpoint 0 · summary works end to end on sandbox data</span></span><span class="st done">passed</span></li>
+    <li><span class="ph">1</span><span class="what"><strong>Multi-user MVP</strong><span>Checkpoint 1 · sign up, link a bank, dashboard, chat with evidence</span></span><span class="st part">passed locally · deploy in 4</span></li>
+    <li><span class="ph">1.5</span><span class="what"><strong>Surface area and network transparency</strong><span>Checkpoint 1.5 · every network call visible, nothing hidden</span></span><span class="st done">passed</span></li>
+    <li class="current"><span class="ph">2</span><span class="what"><strong>Your own data: document ingestion</strong><span>Checkpoint 2 · with Plaid disconnected, real CSV and PDF give correct answers</span></span><span class="st now">current · not started</span></li>
+    <li><span class="ph">3</span><span class="what"><strong>System view</strong><span>Checkpoint 3 · a separate UI that shows how the system works. Being redefined.</span></span><span class="st todo">to define</span></li>
+    <li><span class="ph">4</span><span class="what"><strong>Deployment</strong><span>Checkpoint 4 · Checkpoints 1 and 2 re-run on Vercel + Neon by a new user</span></span><span class="st todo">not started</span></li>
+  </ol>
+</section>
+
+<footer>
+  This page was drawn from the repository as of 5 October 2026: <code>CLAUDE.md</code>, <code>docs/STATE.md</code>, <code>docs/PHASE-2-INGESTION.md</code>, and the code paths named under each diagram. Anything labelled planned does not exist in code yet.
+</footer>
+
+</div>
+</body>
+</html>

@@ -5,6 +5,9 @@ carrying its own provenance.
 
 - [CLAUDE.md](CLAUDE.md) — the build spec: what we're building and why
 - [docs/STATE.md](docs/STATE.md) — where things stand, what's open, what's next
+- [docs/how-jolly-works.html](docs/how-jolly-works.html) — the visual guide: system map, one
+  chat turn end to end, the figure guard, workflows, storage rules, roadmap. Open it in a
+  browser; start here if you are new. Update it when a diagram stops matching the code.
 - this README — how to run it
 
 **Status: Phases 0, 1 and 1.5 built and verified against the Plaid sandbox. Phase 2 — document
