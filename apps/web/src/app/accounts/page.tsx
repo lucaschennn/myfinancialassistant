@@ -19,22 +19,30 @@ import {
 } from '@pfg/core';
 import Link from 'next/link';
 import { requireUser } from '@/server/auth';
-import { hasLinkedItems, requireSnapshotCtx, traceRender } from '@/server/session';
+import { hasAnySource, requireSnapshotCtx, traceRender } from '@/server/session';
 import { ConnectBank } from '../ConnectBank';
 import { FigureEvidence } from '../Evidence';
 import { NetworkPanel } from '../NetworkPanel';
+import { SourceBadge } from '../SourceBadge';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountsPage() {
   const user = await requireUser();
 
-  if (!(await hasLinkedItems(user.id))) {
+  if (!(await hasAnySource(user.id))) {
     return (
       <div className="card">
-        <h2>Nothing connected yet</h2>
-        <p className="card-sub">Connect an institution and its accounts will appear here.</p>
-        <ConnectBank hasAccounts={false} />
+        <h2>No accounts yet</h2>
+        <p className="card-sub">
+          Connect an institution, or add an account from your own records, and it will appear here.
+        </p>
+        <div className="form-actions">
+          <ConnectBank hasAccounts={false} />
+          <Link className="btn" href="/accounts/new">
+            Add an account by hand
+          </Link>
+        </div>
       </div>
     );
   }
@@ -54,13 +62,20 @@ export default async function AccountsPage() {
   return (
     <div className="stack">
       <div className="card">
-        <h2>Connected accounts</h2>
+        <h2>Accounts</h2>
         <p className="card-sub">
-          {accounts.accounts.length} account(s) across {institutions.length} institution(s),
-          read live from Plaid just now. Balances are shown exactly as your institution
-          reports them — a card balance is what you owe, not a negative number.
+          {accounts.accounts.length} account(s) across {institutions.length} institution(s).
+          Accounts marked <SourceBadge source="plaid" /> were read from your bank just now and
+          are never stored; accounts marked <SourceBadge source="manual" /> come from your own
+          records, each balance as of its own date. A card or loan balance is what you owe, not
+          a negative number.
         </p>
-        <ConnectBank hasAccounts />
+        <div className="form-actions">
+          <ConnectBank hasAccounts />
+          <Link className="btn" href="/accounts/new">
+            Add an account by hand
+          </Link>
+        </div>
       </div>
 
       {/*
@@ -73,8 +88,8 @@ export default async function AccountsPage() {
         <div className="card">
           <h2>Missing data</h2>
           <p className="card-sub">
-            These did not come back from Plaid on this load, so anything computed from them
-            is incomplete.
+            These could not be read on this load, so anything computed from them is
+            incomplete.
           </p>
           {ctx.snapshot.gaps.map((gap, i) => (
             <div className="note" key={i}>
@@ -100,6 +115,7 @@ export default async function AccountsPage() {
                     <th>Type</th>
                     <th style={{ textAlign: 'right' }}>Current</th>
                     <th style={{ textAlign: 'right' }}>Available</th>
+                    <th>As of</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -110,6 +126,7 @@ export default async function AccountsPage() {
                         <td>
                           <Link href={`/accounts/${account.accountId}`}>{account.name}</Link>
                           {account.mask && <span className="muted"> ····{account.mask}</span>}
+                          <SourceBadge source={account.source} />
                         </td>
                         <td className="muted">
                           {account.subtype ?? account.type}
@@ -124,6 +141,7 @@ export default async function AccountsPage() {
                             ? formatCents(balance.availableCents)
                             : '—'}
                         </td>
+                        <td className="muted">{balance ? balance.balanceAsOf.slice(0, 10) : '—'}</td>
                       </tr>
                     );
                   })}

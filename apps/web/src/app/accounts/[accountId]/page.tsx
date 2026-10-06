@@ -12,10 +12,12 @@
  */
 
 import {
+  type ManualBalancePoint,
   type SnapshotTransaction,
   formatCents,
   getBalances,
   getHoldings,
+  getManualBalanceHistory,
   getTransactions,
 } from '@pfg/core';
 import Link from 'next/link';
@@ -23,6 +25,8 @@ import { notFound } from 'next/navigation';
 import { requireSnapshotCtx, traceRender } from '@/server/session';
 import { FigureEvidence } from '../../Evidence';
 import { NetworkPanel } from '../../NetworkPanel';
+import { SourceBadge } from '../../SourceBadge';
+import { ManualAccountTools } from './ManualAccountTools';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +62,19 @@ export default async function AccountPage({
     ? getTransactions(ctx, { from: window.from, to: window.to, accountIds: [accountId] })
     : null;
   const transactions = transactionsResult?.data.transactions ?? [];
+
+  // An account from your own records has a real balance history (§3: a series,
+  // not a column). A Plaid account has none by design — nothing of it is stored.
+  let history: ManualBalancePoint[] = [];
+  if (account.source === 'manual') {
+    const read = () => getManualBalanceHistory(ctx, accountId);
+    const result = await ctx.trace.track('db', 'read balance history', read, (r) => ({
+      count: r.data.points.length,
+    }));
+    history = result.data.points;
+  }
   traceRender(ctx, 'GET /accounts/[id]', started);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="stack">
@@ -69,6 +85,7 @@ export default async function AccountPage({
         <h2>
           {account.name}
           {account.mask && <span className="muted"> ····{account.mask}</span>}
+          <SourceBadge source={account.source} />
         </h2>
         <p className="card-sub">
           {account.institutionName ?? 'Unknown institution'} · {account.subtype ?? account.type}
@@ -90,6 +107,10 @@ export default async function AccountPage({
               {balance?.availableCents != null ? formatCents(balance.availableCents) : '—'}
             </div>
           </div>
+          <div>
+            <div className="figure-label">As of</div>
+            <div className="figure-sm">{account.balanceAsOf.slice(0, 10)}</div>
+          </div>
           {balance?.limitCents != null && (
             <div>
               <div className="figure-label">Limit</div>
@@ -99,6 +120,50 @@ export default async function AccountPage({
         </div>
         <FigureEvidence entry={{ tool: 'getBalances', params: {}, data: null, provenance: balanceResult.provenance }} />
       </div>
+
+      {account.source === 'manual' && (
+        <div className="card">
+          <h2>Balance history</h2>
+          <p className="card-sub">
+            Every balance recorded for this account, oldest first. The latest one is what your
+            totals use. None of these came from a bank connection: each came from a statement you
+            imported or a value you typed.
+          </p>
+          {history.length === 0 ? (
+            <p className="muted">
+              No balance recorded yet. Until one is, this account is left out of your totals.
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>As of</th>
+                    <th>From</th>
+                    <th style={{ textAlign: 'right' }}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((point) => (
+                    <tr key={point.asOfDate}>
+                      <td className="muted">{point.asOfDate}</td>
+                      <td className="muted">
+                        {point.documentKind === 'csv'
+                          ? 'CSV import'
+                          : point.documentKind === 'pdf'
+                            ? 'PDF statement'
+                            : 'Typed by you'}
+                      </td>
+                      <td className="num">{formatCents(point.currentCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <ManualAccountTools accountId={accountId} today={today} />
+        </div>
+      )}
 
       {holdings.length > 0 && (
         <div className="card">
@@ -148,8 +213,8 @@ export default async function AccountPage({
         <p className="card-sub">
           {window
             ? `${transactions.length} transaction(s) between ${window.from} and ${window.to}. ` +
-              'This is the window fetched for this request, not your full history.'
-            : 'No transaction window was fetched for this request.'}
+              'This is the period covered for this request, not your full history.'
+            : 'No transaction period is covered by every one of your sources, so none are shown.'}
         </p>
         {transactions.length === 0 ? (
           <p className="muted">Nothing in this window.</p>

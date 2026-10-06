@@ -9,6 +9,8 @@ export {
   ratioToBasisPoints,
   basisPointsToPercent,
   formatCents,
+  parseAmount,
+  type ParsedAmount,
   jsonReplacer,
   toJson,
 } from './money.js';
@@ -39,6 +41,7 @@ export {
   type SnapshotSecurity,
   type SnapshotTransaction,
   type TransactionCategory,
+  type SourceKind,
   LIABILITY_TYPES,
   INVESTABLE_ASSET_TYPES,
   ILLIQUID_SECURED_LOAN_SUBTYPES,
@@ -48,7 +51,26 @@ export {
   accountIndex,
   institutionNames,
   gapNotes,
+  STALE_AFTER_DAYS,
+  staleAccounts,
+  staleBalanceNotes,
+  balanceOriginNotes,
+  sourcesOf,
+  describeSources,
+  obtainedVia,
 } from './snapshot.js';
+
+// Sources and the merge (Phase 2)
+export {
+  type SourceResult,
+  mergeSources,
+  transactionWindowFor,
+  manualAccountId,
+  manualSecurityId,
+  isManualAccountId,
+  manualUuid,
+  DuplicateAccountIdError,
+} from './sources.js';
 
 // Network trace
 export {
@@ -181,3 +203,17 @@ export {
   type WorkflowParams,
   type WorkflowRun,
 } from './workflows/index.js';
+
+// Manual ledger — typed entry (Phase 2). Document imports live in @pfg/ingest.
+export {
+  ACCOUNT_TYPES,
+  ManualLedgerError,
+  assertBalanceDate,
+  createManualAccount,
+  recordManualBalance,
+  archiveManualAccount,
+  getManualBalanceHistory,
+  type CreateManualAccountParams,
+  type ManualAccountCreated,
+  type ManualBalancePoint,
+} from './tools/manualLedger.js';

@@ -67,6 +67,7 @@ describe('netWorth', () => {
       accounts: [account({ type: 'depository', current: 50 })],
       gaps: [
         {
+          source: 'plaid',
           itemId: 'item_down',
           institutionName: 'Second National',
           dataset: 'balances',

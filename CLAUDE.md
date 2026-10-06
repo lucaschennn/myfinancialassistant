@@ -175,7 +175,7 @@ All compute functions unit-tested with fixture data. These tests are the correct
 **Adding a compute field, or a field's speakable form.** Two constraints bind any new figure, both learned the hard way:
 
 1. What Jolly is permitted to say is exactly what `humanize()` emits from the evidence bundle, and the attribution guard checks prose against that set. A new field holding a **signed** figure must *also* expose the form a person would actually speak — a liability of −$65,262 in the data must appear as $65,262 somewhere in the bundle, or the guard will reject the only natural phrasing of a correct sentence and the model will be pushed into writing minus signs into prose to get past it. `NetWorthLine` carries both `contributionCents` and `balanceCents` for exactly this reason.
-2. Provenance note text must not hard-code an origin. `spendingByCategory` currently says *"Some transactions arrived from Plaid without a category"* — which becomes false the moment a CSV import produces uncategorised rows. Note text that names a source must be derived from the rows actually involved.
+2. Provenance note text must not hard-code an origin. `spendingByCategory` used to say *"Some transactions arrived from Plaid without a category"* — false for an uncategorised CSV row. Since Phase 2 it, and every aggregation tool's `computation` text, is derived from the rows actually involved (`describeSources`, `obtainedVia` in `snapshot.ts`). Any new note that names a source must do the same.
 
 ---
 

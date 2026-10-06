@@ -14,6 +14,7 @@
     "@clerk/nextjs": "^7.6.4",
     "@pfg/core": "*",
     "@pfg/db": "*",
+    "@pfg/ingest": "*",
     "@pfg/plaid": "*",
     "next": "^16.2.12",
     "react": "^19.2.8",

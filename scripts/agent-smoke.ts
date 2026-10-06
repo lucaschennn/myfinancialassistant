@@ -14,8 +14,10 @@
  * run before auth keys exist.
  */
 
+import { mergeSources, transactionWindowFor } from '@pfg/core';
 import { closeDb, getDb, loadEnv, users } from '@pfg/db';
-import { fetchSnapshot } from '@pfg/plaid';
+import { readManualSource } from '@pfg/ingest';
+import { fetchPlaidSource } from '@pfg/plaid';
 import { eq } from 'drizzle-orm';
 import { runAgentTurn } from '../apps/web/src/server/agent.js';
 
@@ -41,7 +43,15 @@ try {
   }
 
   console.log(`Fetching live Plaid snapshot for ${user.id}…`);
-  const snapshot = await fetchSnapshot({ userId: user.id, db, transactionDays: 90 });
+  const now = new Date();
+  const snapshot = mergeSources(
+    user.id,
+    [
+      await fetchPlaidSource({ userId: user.id, db, transactionDays: 90, now }),
+      await readManualSource({ userId: user.id, db, transactionWindow: transactionWindowFor(90, now) }),
+    ],
+    now,
+  );
   console.log(
     `  ${snapshot.accounts.length} accounts, ${snapshot.holdings.length} holdings, ` +
       `${snapshot.transactions.length} transactions, ${snapshot.gaps.length} gap(s)\n`,

@@ -207,7 +207,7 @@ html { scroll-behavior: smooth; }
   <span><i class="sw ai"></i>AI model call</span>
   <span><i class="sw ext"></i>External service / live data</span>
   <span><i class="sw store"></i>Stored in Postgres</span>
-  <span><i class="sw plan"></i>Planned (Phase 2)</span>
+  <span><i class="sw plan"></i>Planned (Phase 3)</span>
 </div>
 
 <!-- 00 RULES -->
@@ -233,16 +233,16 @@ html { scroll-behavior: smooth; }
   </header>
   <figure>
     <div class="scroll">
-    <svg viewBox="0 0 960 545" role="img" aria-label="Plaid data is fetched live into an in-memory session snapshot, which the core package reads. The web app and MCP server both call core. The web app calls Anthropic. Postgres holds tokens, user context and net worth history, never Plaid balances or transactions. Documents and a manual ledger are planned for Phase 2.">
+    <svg viewBox="0 0 960 545" role="img" aria-label="Plaid data is fetched live into an in-memory session snapshot, which the core package reads. The web app and MCP server both call core. The web app calls Anthropic. Postgres holds tokens, user context and net worth history, never Plaid balances or transactions. Your own documents are parsed, reviewed by you, and committed to a manual ledger in Postgres, which the snapshot reads alongside Plaid.">
       <!-- Sources -->
       <rect class="n-ext" x="20" y="44" width="190" height="78" rx="5"/>
       <text class="t-h" x="115" y="70" text-anchor="middle">Plaid (sandbox)</text>
       <text class="t-s" x="115" y="90" text-anchor="middle">balances, holdings,</text>
       <text class="t-s" x="115" y="106" text-anchor="middle">90 days of transactions</text>
 
-      <rect class="n planned" x="20" y="160" width="190" height="66" rx="5"/>
+      <rect class="n" x="20" y="160" width="190" height="66" rx="5"/>
       <text class="t-h" x="115" y="186" text-anchor="middle">Your CSV / PDF statements</text>
-      <text class="t-s" x="115" y="206" text-anchor="middle">Phase 2 · planned</text>
+      <text class="t-s" x="115" y="206" text-anchor="middle">imported after your review</text>
 
       <!-- Snapshot -->
       <rect class="n" x="265" y="44" width="170" height="128" rx="5"/>
@@ -303,7 +303,7 @@ html { scroll-behavior: smooth; }
       <rect class="n-store" x="20" y="396" width="670" height="132" rx="6"/>
       <text class="t-h" x="36" y="419">Postgres</text>
       <text class="t-s" x="104" y="419">what is kept</text>
-      <rect class="chip planned" x="36" y="432" width="200" height="34" rx="4"/>
+      <rect class="chip" x="36" y="432" width="200" height="34" rx="4"/>
       <text x="136" y="453" text-anchor="middle">documents + manual ledger</text>
       <rect class="chip" x="250" y="432" width="210" height="34" rx="4"/>
       <text x="355" y="453" text-anchor="middle">plaid_items · token encrypted</text>
@@ -317,10 +317,10 @@ html { scroll-behavior: smooth; }
       <text class="t-bad" x="36" y="507">Plaid balances, holdings, txns</text>
 
       <!-- Planned manual path -->
-      <line class="a planned" x1="115" y1="226" x2="115" y2="429" marker-end="url(#m)"/>
+      <line class="a a-store" x1="115" y1="226" x2="115" y2="429" marker-end="url(#m-store)"/>
       <text class="t-lbl" x="123" y="322">parse, review,</text>
       <text class="t-lbl" x="123" y="338">commit</text>
-      <path class="a planned" d="M222,432 V296 H350 V175" marker-end="url(#m)"/>
+      <path class="a a-store" d="M222,432 V296 H350 V175" marker-end="url(#m-store)"/>
       <text class="t-lbl" x="286" y="288" text-anchor="middle">read</text>
 
       <!-- core ↔ Postgres -->
@@ -328,9 +328,9 @@ html { scroll-behavior: smooth; }
       <text class="t-lbl" x="598" y="378">reads context · appends net worth</text>
     </svg>
     </div>
-    <figcaption>Plaid's data has no stored form, because the only arrow that touches Postgres from the live side writes a derived net-worth figure. Dashed parts are the Phase 2 manual source. Statements have no outside system holding them, so they are stored, and the snapshot then merges both sources.</figcaption>
+    <figcaption>Plaid's data has no stored form, because the only arrow that touches Postgres from the live side writes a derived net-worth figure. Your own statements are the other source. Nothing else holds them, so they are stored: the file encrypted, the ledger in Postgres. The snapshot merges both on every request, and every row keeps its source.</figcaption>
   </figure>
-  <div class="code-refs"><b>In the code</b><code>packages/core</code><code>packages/plaid/src/fetchSnapshot.ts</code><code>apps/web/src/server/session.ts</code><code>apps/mcp/src/server.ts</code><code>packages/db/src/schema.ts</code></div>
+  <div class="code-refs"><b>In the code</b><code>packages/core/src/sources.ts</code><code>packages/plaid/src/fetchSnapshot.ts</code><code>packages/ingest/src/read.ts</code><code>apps/web/src/server/session.ts</code><code>apps/mcp/src/server.ts</code><code>packages/db/src/schema.ts</code></div>
 </section>
 
 <!-- 02 TURN -->
@@ -563,7 +563,7 @@ html { scroll-behavior: smooth; }
   </header>
   <figure>
     <div class="scroll">
-    <svg viewBox="0 0 960 330" role="img" aria-label="Decision: can we fetch this again on demand from someone else? If yes, it is held in memory for one request only: Plaid balances, holdings, transactions, the snapshot, the evidence bundle and the network trace. If no, it is stored in Postgres scoped to the user: the encrypted Plaid token, profile, goals and notes, net worth history, and in Phase 2 the encrypted documents and manual ledger.">
+    <svg viewBox="0 0 960 330" role="img" aria-label="Decision: can we fetch this again on demand from someone else? If yes, it is held in memory for one request only: Plaid balances, holdings, transactions, the snapshot, the evidence bundle and the network trace. If no, it is stored in Postgres scoped to the user: the encrypted Plaid token, profile, goals and notes, net worth history, and the encrypted documents and manual ledger.">
       <rect class="n" x="270" y="16" width="420" height="62" rx="6" style="stroke-width:2"/>
       <text class="t-h" x="480" y="42" text-anchor="middle" style="font-size:15px">Can we fetch it again, on demand,</text>
       <text class="t-h" x="480" y="62" text-anchor="middle" style="font-size:15px">from somewhere else?</text>
@@ -586,7 +586,7 @@ html { scroll-behavior: smooth; }
       <text x="520" y="188">· Plaid access token (encrypted, never the data)</text>
       <text x="520" y="212">· profile, goals and notes: things you typed</text>
       <text x="520" y="236">· net worth history (yesterday can't be refetched)</text>
-      <text x="520" y="260">· documents + manual ledger (Phase 2, encrypted)</text>
+      <text x="520" y="260">· your documents (encrypted) + manual ledger</text>
       <text class="t-s" x="520" y="292">Every query filters by userId. Documents use their own encryption key.</text>
     </svg>
     </div>
@@ -598,28 +598,28 @@ html { scroll-behavior: smooth; }
 <!-- 06 IMPORT -->
 <section id="import">
   <header>
-    <h2><span class="n">06</span>Document import <span class="pill plan">Phase 2 · planned</span></h2>
-    <p>This is how real data will arrive while Plaid stays in sandbox. The expensive work happens once, at import. After that, statement data is read from the ledger like any other source. No row reaches the ledger until a person has confirmed it.</p>
+    <h2><span class="n">06</span>Document import <span class="pill">Phase 2 · built</span></h2>
+    <p>This is how real data arrives while Plaid stays in sandbox. The expensive work happens once, at import. After that, statement data is read from the ledger like any other source. No row reaches the ledger until a person has confirmed it.</p>
   </header>
   <figure>
     <div class="scroll">
     <svg viewBox="0 0 960 300" role="img" aria-label="Planned import pipeline: upload, which encrypts and deduplicates by hash; parse into a draft; human review; then one-transaction commit to the manual ledger. PDFs branch: extract the text layer, have a model transcribe verbatim strings, and drop any string not found in the text before review.">
-      <rect class="n planned" x="20" y="36" width="200" height="90" rx="5"/>
+      <rect class="n" x="20" y="36" width="200" height="90" rx="5"/>
       <text class="t-h" x="120" y="62" text-anchor="middle">1 · Upload</text>
       <text class="t-s" x="120" y="84" text-anchor="middle">encrypted at rest</text>
       <text class="t-s" x="120" y="101" text-anchor="middle">sha256 catches re-uploads</text>
 
-      <rect class="n-code planned" x="260" y="36" width="200" height="90" rx="5"/>
+      <rect class="n-code" x="260" y="36" width="200" height="90" rx="5"/>
       <text class="t-h" x="360" y="62" text-anchor="middle">2 · Parse to a draft</text>
       <text class="t-s" x="360" y="84" text-anchor="middle">CSV: plain code</text>
       <text class="t-s" x="360" y="101" text-anchor="middle">PDF: see below</text>
 
-      <rect class="n planned" x="500" y="36" width="200" height="90" rx="5"/>
+      <rect class="n" x="500" y="36" width="200" height="90" rx="5"/>
       <text class="t-h" x="600" y="62" text-anchor="middle">3 · You review</text>
       <text class="t-s" x="600" y="84" text-anchor="middle">every row confirmed</text>
       <text class="t-s" x="600" y="101" text-anchor="middle">"$4.85 spent at Starbucks?"</text>
 
-      <rect class="n-store planned" x="740" y="36" width="200" height="90" rx="5"/>
+      <rect class="n-store" x="740" y="36" width="200" height="90" rx="5"/>
       <text class="t-h" x="840" y="62" text-anchor="middle">4 · Commit</text>
       <text class="t-s" x="840" y="84" text-anchor="middle">one DB transaction</text>
       <text class="t-s" x="840" y="101" text-anchor="middle">into the manual ledger</text>
@@ -629,15 +629,15 @@ html { scroll-behavior: smooth; }
       <line class="a" x1="700" y1="81" x2="737" y2="81" marker-end="url(#m)"/>
 
       <!-- PDF branch -->
-      <rect class="n-code planned" x="180" y="196" width="200" height="74" rx="5"/>
+      <rect class="n-code" x="180" y="196" width="200" height="74" rx="5"/>
       <text class="t-h" x="280" y="222" text-anchor="middle">Extract the text layer</text>
       <text class="t-s" x="280" y="243" text-anchor="middle">no OCR: scans are rejected</text>
 
-      <rect class="n-ai planned" x="420" y="196" width="200" height="74" rx="5"/>
+      <rect class="n-ai" x="420" y="196" width="200" height="74" rx="5"/>
       <text class="t-h" x="520" y="222" text-anchor="middle">Model transcribes</text>
       <text class="t-s" x="520" y="243" text-anchor="middle">verbatim strings, not numbers</text>
 
-      <rect class="n-code planned" x="660" y="196" width="200" height="74" rx="5" style="stroke-width:2"/>
+      <rect class="n-code" x="660" y="196" width="200" height="74" rx="5" style="stroke-width:2"/>
       <text class="t-m" x="760" y="222" text-anchor="middle" style="font-weight:500;fill:var(--ink)">checkTranscription()</text>
       <text class="t-s" x="760" y="243" text-anchor="middle">not in the text → dropped</text>
 
@@ -651,7 +651,7 @@ html { scroll-behavior: smooth; }
     </div>
     <figcaption>Two risks shape this design. First, sign conventions: Plaid treats money leaving an account as positive, while most bank CSVs treat it as negative. Getting this backwards flips the savings rate without any error, so the review step restates each sample row as a plain sentence. Second, the AI reading a PDF may only copy strings it finds in the text. Code converts them to cents, and a person confirms each row.</figcaption>
   </figure>
-  <div class="code-refs"><b>Spec</b><code>docs/PHASE-2-INGESTION.md</code><code>CLAUDE.md §0.8, §7b</code></div>
+  <div class="code-refs"><b>In the code</b><code>packages/ingest/src/documents.ts</code><code>packages/ingest/src/csv/</code><code>packages/ingest/src/pdf/guard.ts</code><code>apps/web/src/app/import/</code><code>docs/PHASE-2-INGESTION.md</code></div>
 </section>
 
 <!-- 07 PLAYGROUND -->
@@ -725,7 +725,7 @@ html { scroll-behavior: smooth; }
     <li><span class="ph">0</span><span class="what"><strong>Foundations and the data pipe</strong><span>Checkpoint 0 · summary works end to end on sandbox data</span></span><span class="st done">passed</span></li>
     <li><span class="ph">1</span><span class="what"><strong>Multi-user MVP</strong><span>Checkpoint 1 · sign up, link a bank, dashboard, chat with evidence</span></span><span class="st part">passed locally · deploy in 4</span></li>
     <li><span class="ph">1.5</span><span class="what"><strong>Surface area and network transparency</strong><span>Checkpoint 1.5 · every network call visible, nothing hidden</span></span><span class="st done">passed</span></li>
-    <li class="current"><span class="ph">2</span><span class="what"><strong>Your own data: document ingestion</strong><span>Checkpoint 2 · with Plaid disconnected, real CSV and PDF give correct answers</span></span><span class="st now">current · not started</span></li>
+    <li class="current"><span class="ph">2</span><span class="what"><strong>Your own data: document ingestion</strong><span>Checkpoint 2 · with Plaid disconnected, real CSV and PDF give correct answers</span></span><span class="st now">built · run on real files next</span></li>
     <li><span class="ph">3</span><span class="what"><strong>The playground, and the AI work done with it</strong><span>Checkpoint 3 · every stage visible and runnable alone; prompts tuned and the router measured on real data</span></span><span class="st todo">specified</span></li>
     <li><span class="ph">4</span><span class="what"><strong>Deployment</strong><span>Checkpoint 4 · Checkpoints 1 and 2 re-run on Vercel + Neon by a new user</span></span><span class="st todo">not started</span></li>
   </ol>

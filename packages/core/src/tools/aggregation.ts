@@ -15,13 +15,21 @@ import {
   type SnapshotHolding,
   type SnapshotSecurity,
   type SnapshotTransaction,
+  type SourceKind,
+  describeSources,
   gapNotes,
   institutionNames,
+  obtainedVia,
+  sourcesOf,
+  staleBalanceNotes,
+  balanceOriginNotes,
 } from '../snapshot.js';
 import { type Period, type SelectOptions, assertPeriod, selectTransactions } from '../compute/period.js';
 
 export interface AccountSummary {
   accountId: string;
+  /** Where this account's data comes from: a live bank connection or your own records. */
+  source: SourceKind;
   name: string;
   officialName: string | null;
   institutionName: string | null;
@@ -39,12 +47,14 @@ export interface ListAccountsData {
 export function listAccounts(ctx: Ctx): ToolResult<ListAccountsData> {
   const snapshot = requireSnapshot(ctx, 'listAccounts');
   const notes = gapNotes(snapshot, 'balances');
+  const sources = sourcesOf(snapshot.accounts);
 
   const provenance: Provenance = {
-    source: 'plaid',
+    source: obtainedVia(sources),
     asOf: snapshot.fetchedAt,
     accountIds: snapshot.accounts.map((a) => a.accountId),
-    computation: 'Accounts as returned by Plaid for every active linked item.',
+    computation: `Every account from ${describeSources(sources)}.`,
+    sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 
@@ -52,6 +62,7 @@ export function listAccounts(ctx: Ctx): ToolResult<ListAccountsData> {
     {
       accounts: snapshot.accounts.map((a) => ({
         accountId: a.accountId,
+        source: a.source,
         name: a.name,
         officialName: a.officialName,
         institutionName: a.institutionName,
@@ -67,6 +78,9 @@ export function listAccounts(ctx: Ctx): ToolResult<ListAccountsData> {
 
 export interface BalanceLine {
   accountId: string;
+  source: SourceKind;
+  /** When this balance was true: the fetch time for Plaid, the statement date for your own records. */
+  balanceAsOf: string;
   name: string;
   institutionName: string | null;
   mask: string | null;
@@ -103,15 +117,21 @@ export function getBalances(
 ): ToolResult<GetBalancesData> {
   const snapshot = requireSnapshot(ctx, 'getBalances');
   const accounts = filterAccounts(snapshot.accounts, params.accountIds);
-  const notes = gapNotes(snapshot, 'balances');
+  const notes = [
+    ...gapNotes(snapshot, 'balances'),
+    ...balanceOriginNotes(snapshot, new Set(accounts.map((a) => a.accountId))),
+    ...staleBalanceNotes(snapshot, new Set(accounts.map((a) => a.accountId))),
+  ];
+  const sources = sourcesOf(accounts);
 
   const provenance: Provenance = {
-    source: 'plaid',
+    source: obtainedVia(sources),
     asOf: snapshot.fetchedAt,
     accountIds: accounts.map((a) => a.accountId),
     computation:
-      'Current, available, and limit balances as reported by each institution at fetch time. ' +
-      'Liability balances are positive amounts owed.',
+      `Current, available, and limit balances from ${describeSources(sources)}, each as of its ` +
+      'own date. Liability balances are positive amounts owed.',
+    sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 
@@ -119,6 +139,8 @@ export function getBalances(
     {
       balances: accounts.map((a) => ({
         accountId: a.accountId,
+        source: a.source,
+        balanceAsOf: a.balanceAsOf,
         name: a.name,
         institutionName: a.institutionName,
         mask: a.mask,
@@ -155,12 +177,14 @@ export function getHoldings(
   const referenced = new Set(holdings.map((h) => h.securityId));
   const securities = snapshot.securities.filter((s) => referenced.has(s.securityId));
   const notes = gapNotes(snapshot, 'holdings');
+  const sources = holdings.length > 0 ? sourcesOf(holdings) : snapshot.sources;
 
   const provenance: Provenance = {
-    source: 'plaid',
+    source: obtainedVia(sources),
     asOf: snapshot.fetchedAt,
     accountIds: [...new Set(holdings.map((h) => h.accountId))],
-    computation: 'Investment positions and their securities as reported by each institution.',
+    computation: `Investment positions and their securities from ${describeSources(sources)}.`,
+    sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 
@@ -200,16 +224,18 @@ export function getTransactions(
     : selection.transactions;
 
   const notes = [...gapNotes(snapshot, 'transactions'), ...selection.notes];
+  const sources = transactions.length > 0 ? sourcesOf(transactions) : snapshot.sources;
 
   const provenance: Provenance = {
-    source: 'plaid',
+    source: obtainedVia(sources),
     asOf: snapshot.fetchedAt,
     accountIds: [...new Set(transactions.map((t) => t.accountId))],
     period,
     computation:
-      'Transactions as returned by Plaid for the window, filtered to the requested date range' +
+      `Transactions from ${describeSources(sources)}, filtered to the requested date range` +
       (categoryFilter ? ' and categories.' : '.') +
       ' Positive amounts are money leaving the account.',
+    sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 

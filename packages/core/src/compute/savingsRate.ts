@@ -50,6 +50,7 @@ export function savingsRate(ctx: Ctx, params: SavingsRateParams): ToolResult<Sav
       '(money in − money out) ÷ money in, over the period, using the same inflow and outflow ' +
       'figures as the cash flow calculation.',
     inputs: ['cashFlow'],
+    ...(flow.provenance.sources ? { sources: flow.provenance.sources } : {}),
     ...(notes.length > 0 ? { notes } : {}),
   };
 

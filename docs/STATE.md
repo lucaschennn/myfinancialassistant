@@ -3,25 +3,133 @@
 Living handoff notes. [CLAUDE.md](../CLAUDE.md) is the spec (what we're building and why);
 [README.md](../README.md) is how to run it. This file is where things stand and what's open.
 
-Last updated at the **start of Phase 2 (document ingestion)**, after the timeline was
-re-planned: **deployment moved out to Phase 4** and document ingestion became Phase 2, ahead of
-the AI-sophistication work that used to hold that slot. See CLAUDE.md §8 Phase 2 for the
-reasoning; the short version is that every judgement about Jolly's guidance so far has been made
-against First Platypus Bank's invented numbers, and a nicer deployment of fiction is not a
-product. §10 blocks live institutions until the security and employer checks clear, so documents
-are the only route to real data.
+Last updated at the **end of the Phase 2 build (document ingestion)**, before the Checkpoint 2
+run. Phase 2 exists because every judgement about Jolly's guidance had been made against First
+Platypus Bank's invented numbers, and §10 blocks live institutions until the security and
+employer checks clear — so the author's own documents are the only route to real data. See
+CLAUDE.md §8 Phase 2.
 
 **Checkpoint status** (Checkpoint N closes Phase N; renumbered from the original one-ahead
 scheme, see CLAUDE.md §8): 0 ✅ · 1 functionally ✅, formally ⬜ (deploy only, now Phase 4) ·
-1.5 ✅ · 2 ⬜ (ingestion — current) · 3 ⬜ (the playground — specified, see
+1.5 ✅ · 2 ⬜ (ingestion — **built and tested; the run on your own documents is next**) ·
+3 ⬜ (the playground — specified, see
 [PHASE-3-PLAYGROUND.md](PHASE-3-PLAYGROUND.md)) · 4 ⬜ (deploy).
+
+## Where Phase 2 landed
+
+**Built, tested, and run live against the sandbox and the real model.** Steps 1–7 of
+PHASE-2-INGESTION §8 are done; step 8, the Checkpoint 2 run on the author's own documents, is
+not — it needs real files and a person (see *What is next*). 250 tests (from 176), typecheck
+clean, production build clean.
+
+**What exists now:**
+
+- **Sources and the merge** (`packages/core/src/sources.ts`). The snapshot is
+  `mergeSources([plaid, manual])`. Every account, holding, security, transaction, and gap carries
+  a required `source`; every account a required `balanceAsOf`; provenance carries `sources`.
+  Window = intersection, ids asserted unique, empty sources do not narrow the window. Aggregation
+  tools derive their wording from the rows involved — "from your own records" is never "from
+  Plaid". `fetchSnapshot` became **`fetchPlaidSource`** (a rename the spec did not ask for: it no
+  longer returns a snapshot, and the old name would have lied at every call site).
+- **Staleness** in calendar days, 7-day threshold, as a dated note on `getBalances`, `netWorth`,
+  and `fireProgress`. **Document naming**: every manual balance's evidence says where it came
+  from — "from the PDF statement imported 2026-10-05", "entered by hand" — by kind and date,
+  **never filename** (real filenames carry account numbers, and evidence goes to the model).
+- **Schema**: the six tables, one additive migration (`0001_manual_ledger.sql`), checked in
+  `psql`. No balance/amount column exists on any Plaid table.
+- **`packages/ingest`**: encrypted `DocumentStore` (separate `DOCUMENT_ENCRYPTION_KEY`, refuses to
+  equal the token key, keys `${userId}/${uuid}` asserted on every access); content-sniffed
+  upload with a 10 MB cap; RFC 4180 reader; column, date-format and sign-convention inference;
+  the CSV and PDF draft builders; `checkTranscription()`; the transcription call; commit; reject;
+  delete (keep or drop the ledger rows); `readManualSource`.
+- **`parseAmount`** in `core/money.ts`: the one text-to-cents parser, used by typed entry, CSV,
+  and PDF. It goes string → bigint with **no float at all**, so it is stricter than routing
+  through `dollarsToCents` as the spec sketched (§4.3), not a second float boundary. Handles
+  `$1,234.56`, `(89.00)`, `4.85-`, `CR`/`DR`; rejects double signs, European formats, and more
+  than two decimals rather than guessing.
+- **UI**: `/sources` (banks with disconnect, your records, documents), `/import`,
+  `/import/[documentId]` (the review screen), `/accounts/new`, manual balance history and
+  archive on `/accounts/[id]`, source badges ("Live · Plaid" / "Your records") on every account
+  everywhere, "Data from" on every evidence card. Nav gains Sources and Import.
+- **MCP**: the harness reads the manual ledger too; `refreshSnapshot` reports `sources`;
+  `deleteGoal` is exposed (the STATE.md omission).
+
+**How the draft works, since it is the design decision most worth knowing.** A draft is never
+stored or edited. What is stored is the user's *decisions* (column roles, date format, sign
+convention, which account, per-row edits) and — for a PDF only — the model's verbatim
+transcription, which cannot be re-derived without another model call. Every read rebuilds the
+draft from the encrypted original bytes plus the decisions; commit rebuilds it again and
+re-checks every blocker and re-runs the transcription guard rather than trusting either. The
+browser only ever sees a strings-only view: what the document said beside what the server made of
+it. There is no path by which a hand-patched draft reaches the ledger.
+
+**Verified by running, not by reading:**
+
+- Both sign conventions committed through Postgres and read back through `cashFlow` with inflow
+  and outflow the right way round (`documents.test.ts`) — §3.4.4.
+- A hallucinated PDF closing balance ($50,000 against a printed $5,000) is dropped before review
+  and never reaches the ledger; a tampered draft is refused at commit.
+- A scanned (text-less) PDF is rejected with the reason, with no model call made.
+- Re-uploading identical bytes is recognised; an overlapping export adds only new rows and
+  reports the rest as skipped duplicates.
+- **Live transcription** (`npm run transcribe:smoke`, one Sonnet call on a fictional statement
+  generated in memory): structured output accepted, every figure quoted verbatim, guard dropped
+  nothing, signs and totals correct.
+- **Live merged snapshot**: a stale manual account added to the sandbox user beside 14 Plaid
+  accounts; `agent:smoke` answered clean, net worth moved by exactly the manual balance, and
+  Jolly said unprompted that the figure came from the user's own records and was dated
+  31 August. The temporary account was removed afterwards and today's history point restored.
+
+**Found by running it, fixed:**
+
+1. **The live model quoted the statement date as the whole period** ("Aug 1, 2026 - Aug 31,
+   2026"). The guard rightly accepted it — it is printed — but it did not parse, so there was no
+   statement date, so year-less row dates ("08/03") could not be dated, and every transaction
+   and the balance fell out of the draft. Nothing wrong reached it; it was just empty. Fixed
+   twice over: a quoted period now resolves deterministically to its end date
+   (`parseStatementEndDate`), and the prompt asks for the single date. The fixture tests could
+   not have found this — they were written with the date the way I expected a model to quote it.
+2. **Staleness compared instants, not dates.** A statement dated 28 September against a fetch at
+   noon on 5 October is 7.5 days, so "a week old" tipped into "stale" depending on the time of
+   day. Now whole calendar days.
+3. **The sandbox item had gone `ITEM_LOGIN_REQUIRED`** before any of this ran (`agent:smoke`
+   showed 0 accounts, 1 gap — and Jolly correctly explained the disconnection). The old item is
+   kept with status `login_required`; a fresh First Platypus item was linked for the sandbox user.
+   It has 14 accounts rather than 12, so net worth is now **−$77,164.15**, not −$40,452.32.
+
+**Not verified — treat as likely to have bugs:**
+
+- **No page of this UI has been opened in a browser.** Every new screen is verified by
+  typecheck, a production build, and the API/library tests underneath it. The review screen is
+  the largest client component in the repo; expect interaction bugs.
+- **No real bank CSV or PDF has been tried.** The fixtures are fictional and shaped like the
+  common exports; real ones will find column names and layouts the inference does not know.
+- **Disconnect** (`/item/remove`) has not been run against Plaid.
+
+## Known gaps added by Phase 2
+
+- **Date arithmetic in prose is not guarded.** Jolly said a balance was "about five weeks older"
+  — a duration it computed. `checkAttribution()` checks money and percentages only. Harmless
+  here, but it is arithmetic, and a Phase 3 item (the guard bench is the place to decide).
+- **One account per PDF.** A combined statement transcribes the first account and says how many
+  more there are. Import the others separately or by hand.
+- **Security types are not read from statements**, so PDF holdings count as `other` in asset
+  allocation, with a note saying so.
+- **A CSV with no balance column produces an account with no balance**, which `netWorth` leaves
+  out (and says so). The review screen lets you enter the balance; it is easy to miss.
+- **Bank category names are not mapped** (§10), so CSV rows are `UNCATEGORIZED` and transfers
+  between your own accounts are not recognised as transfers — they count as in and out.
+- **`documents.status` values `parsed` and `rejected` are unused.** Reject deletes the row and
+  the bytes outright, so the same file can be uploaded again.
+
+## Where Phase 1.5 left things
 
 Checkpoint 1.5 passed on a real run: a brand-new Clerk user signed up locally, linked a sandbox
 institution through the UI, set a spend target, walked every route, and read the network panels.
 That run also covers every clause of Checkpoint 1's acceptance except the word *deployed*.
 
-176 tests, typecheck clean, production build clean, and all six workflows answering clean
-against the live Plaid sandbox. Three defects were found by using the §0.1 guard in anger —
+At that point: 176 tests, typecheck clean, production build clean, and all six workflows
+answering clean against the live Plaid sandbox. Three defects were found by using the §0.1 guard in anger —
 see *The guard's first findings* below.
 
 ### The Clerk cold-start redirect loop (fixed in the app, and it will recur in the OS)
@@ -282,11 +390,8 @@ identifier, or its own tool name repeated.
   Webpack's persistent cache keys on the old name, and a case-insensitive filesystem happily
   matches it, producing an "X is not exported" error for a file that no longer exists.
 
-- **`deleteGoal` is not exposed over MCP** though it exists in `core`. An omission, not a
-  decision — the setters got wired and the deleter didn't. It also has no test at any layer,
-  which is how it stayed invisible. Phase 2 touches `apps/mcp/src/server.ts` anyway to expose the
-  manual source, so PHASE-2-INGESTION.md §6.1 folds this in rather than leaving it for a session
-  that has no other reason to open that file.
+- **~~`deleteGoal` is not exposed over MCP~~ — fixed in Phase 2.** It is registered now. It
+  still has no test at any layer.
 - **`annualIncomeCents` and `riskTolerance` are stored but drive nothing.** CLAUDE.md §4 lists
   them as profile fields, and `setProfile` writes them, but no compute function reads either —
   `savingsRate` takes income from `cashFlow`'s measured transaction inflow, not the profile.
@@ -333,11 +438,32 @@ identifier, or its own tool name repeated.
 
 ---
 
-## What is next: Phase 2, document ingestion
+## What is next: the Checkpoint 2 run
 
-The buildable spec is **[docs/PHASE-2-INGESTION.md](PHASE-2-INGESTION.md)** — concrete types,
-tables, build order, and the traps. CLAUDE.md §0.4, §0.8, §3, §7b and §8 carry the principles it
-rests on. Three things worth knowing before opening either:
+The checklist is PHASE-2-INGESTION.md §9; it needs the author's own files, so it is a person's
+job, not an agent's. In order:
+
+1. **Settle the §9 employer outside-activity/IP item first.** The moment a real statement is
+   uploaded it lands — encrypted — in `.documents/` on this machine. That is the point this stops
+   being hypothetical.
+2. Sign in, open **/sources**, disconnect every Plaid item. The dashboard must still work with
+   nothing but your own records — add one account by hand first to see it.
+3. **/import** a real CSV export. Check the column roles, the date format if asked, and — the one
+   that matters — whether the two example sentences read the right way round. Commit.
+4. **/import** a real PDF statement. Compare every "Read by AI" figure with the paper. Commit.
+5. Dashboard, /history, /accounts, /accounts/[id], /goals, and chat: every figure right, every
+   evidence card naming the document, staleness stated where a balance is old.
+6. Upload the same statement again → "already imported". Then reconnect Plaid → both sources
+   visible, no id collisions, staleness stated. Delete a document both ways.
+7. `npm test`, `npm run typecheck`, `npm run build`; and in `npm run db:psql`, confirm the
+   `manual_*` tables hold only your documents' rows and nothing from Plaid.
+
+Write what happened here — especially what did not work. Real exports will find layouts the
+fixtures did not.
+
+### Background that still holds
+
+Three things worth knowing about Phase 2's design, kept from when it was specified:
 
 - **§0.4 changed, and it was the biggest spec decision in this re-plan.** "Plaid is the system of
   record; we never mirror its financial data" became "never mirror a system of record we do not
@@ -364,13 +490,11 @@ lane, a guard bench and a routing suite. The older AI-sophistication items stay 
 are done *through* the playground. The spec is **[PHASE-3-PLAYGROUND.md](PHASE-3-PLAYGROUND.md)**;
 Checkpoint 3 is defined there in §11.
 
-**Do not build any of it during Phase 2**, but avoid two Phase 2 choices that would make it
-awkward:
-- **Ingest stages must be callable alone, on in-memory bytes, with no persistence.** The Phase 2
-  sketch has `upload.ts` doing sniff, hash, dedupe *and* persist in one call; split persistence
-  out. The playground's ingestion lane runs everything up to the draft and must never write.
-- **Keep the transcription prompt and model as parameters** of `pdf/transcribe.ts`, with today's
-  values as defaults, the same way PHASE-3 §4.1 does for the router and synthesis.
+Phase 2 kept both seams the playground needs: `inspectUpload`, `findDuplicate`, the CSV and
+PDF draft builders, and `checkTranscription` are all pure and run on bytes in memory, with
+`storeUpload` the only write; and `createTranscriber` takes the prompt, model, and token limit
+as config with today's values as `DEFAULT_TRANSCRIPTION_CONFIG`. `scripts/transcribe-smoke.ts`
+is a small preview of the playground's ingestion lane.
 
 Three things discovered while specifying it, recorded so they are not rediscovered:
 - **The atomic tools' parameter schemas live in `apps/mcp/src/server.ts`**, not in `core`. The
@@ -530,8 +654,9 @@ draft, or withheld. Pass questions as arguments to test specific routes.
 `--show` to create it, then `npm run set:profile -- --spend 60000 --income 120000 --risk moderate` —
 without a spend target `fireProgress` cannot run and the summary degrades to four tools.
 
-**Phase 2 adds two environment entries:** `DOCUMENT_ENCRYPTION_KEY` (distinct from
-`TOKEN_ENCRYPTION_KEY` — see CLAUDE.md §9) and optionally `DOCUMENT_STORE_DIR`, defaulting to
-`.documents/` at the repo root. **Gitignore that directory in the same commit that creates the
-store, before any real statement exists in it.** A bank statement accidentally committed cannot
-be un-committed.
+**Phase 2 environment:** `DOCUMENT_ENCRYPTION_KEY` (distinct from `TOKEN_ENCRYPTION_KEY` —
+CLAUDE.md §9; the loader refuses an identical value) was generated into the local `.env` during
+the build. `DOCUMENT_STORE_DIR` is optional and defaults to `.documents/` at the repo root,
+which is **already gitignored** — check that before the first real upload anyway.
+`npm run transcribe:smoke` makes one live model call on a fictional, in-memory statement and
+prints what was quoted, what the guard dropped, and the draft.

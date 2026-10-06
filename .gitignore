@@ -8,6 +8,10 @@ out/
 .env.*
 !.env.example
 
+# Uploaded financial documents (Phase 2, §9). Encrypted, but a statement
+# committed by accident cannot be un-committed — keep the directory out of git.
+.documents/
+
 # Local scratch
 *.log
 .DS_Store

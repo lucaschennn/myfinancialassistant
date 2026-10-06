@@ -63,6 +63,8 @@ The evidence carries notes about what is missing or approximate — an instituti
 
 If a step could not run at all, it appears under "limitations". Say what is missing and what would fix it.
 
+Some accounts come from the person's own records — a statement they imported or a balance they typed — rather than a live bank connection, and each such balance is true as of its own date. When a note says a balance is older than the rest, mention it where it bears on the answer, as information rather than a warning: the person may be tracking that account by statement on purpose.
+
 ## Never
 
 - Never state a figure absent from the evidence.

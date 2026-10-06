@@ -9,9 +9,18 @@
  *   npm run checkpoint0 -- --user <uuid>
  */
 
-import { formatCents, humanize, runWorkflow, toJson, toReasoningTrace } from '@pfg/core';
+import {
+  formatCents,
+  humanize,
+  mergeSources,
+  runWorkflow,
+  toJson,
+  toReasoningTrace,
+  transactionWindowFor,
+} from '@pfg/core';
 import { closeDb, getDb, loadEnv, users } from '@pfg/db';
-import { fetchSnapshot } from '@pfg/plaid';
+import { readManualSource } from '@pfg/ingest';
+import { fetchPlaidSource } from '@pfg/plaid';
 
 loadEnv();
 
@@ -48,7 +57,15 @@ try {
 
   // 1. Live fetch into an in-memory snapshot. Nothing here is written to disk.
   const started = Date.now();
-  const snapshot = await fetchSnapshot({ userId, db });
+  const now = new Date();
+  const snapshot = mergeSources(
+    userId,
+    [
+      await fetchPlaidSource({ userId, db, now }),
+      await readManualSource({ userId, db, transactionWindow: transactionWindowFor(90, now) }),
+    ],
+    now,
+  );
   console.log(`Live Plaid fetch: ${Date.now() - started}ms`);
   console.log(
     `  accounts ${snapshot.accounts.length} · holdings ${snapshot.holdings.length} · ` +

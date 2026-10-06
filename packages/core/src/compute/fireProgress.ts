@@ -6,6 +6,8 @@ import {
   LIABILITY_TYPES,
   gapNotes,
   isIlliquidSecuredDebt,
+  sourcesOf,
+  staleBalanceNotes,
 } from '../snapshot.js';
 import { getProfile } from '../tools/userContext.js';
 
@@ -170,6 +172,11 @@ export async function fireProgress(
     );
   }
 
+  const usedAccountIds = new Set([...investableAccountIds, ...snapshot.accounts
+    .filter((a) => a.currentCents !== null && LIABILITY_TYPES.has(a.type) && !isIlliquidSecuredDebt(a))
+    .map((a) => a.accountId)]);
+  notes.push(...staleBalanceNotes(snapshot, usedAccountIds));
+
   if (spendSource === 'profile') {
     notes.push('Annual spend target came from your saved profile, not from measured spending.');
   }
@@ -189,6 +196,7 @@ export async function fireProgress(
     accountIds: investableAccountIds,
     computation,
     inputs: spendSource === 'profile' ? ['getBalances', 'getUserContext'] : ['getBalances'],
+    sources: sourcesOf(snapshot.accounts.filter((a) => usedAccountIds.has(a.accountId))),
     ...(notes.length > 0 ? { notes } : {}),
   };
 

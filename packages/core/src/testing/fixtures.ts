@@ -14,7 +14,9 @@ import type {
   SnapshotHolding,
   SnapshotSecurity,
   SnapshotTransaction,
+  SourceKind,
 } from '../snapshot.js';
+import { sourcesOf } from '../snapshot.js';
 
 export const TEST_USER_ID = '00000000-0000-4000-8000-000000000001';
 export const TEST_FETCHED_AT = '2026-08-01T12:00:00.000Z';
@@ -31,12 +33,18 @@ export interface AccountSpec {
   current: number | null;
   institution?: string;
   mask?: string;
+  /** Defaults to 'plaid'. */
+  source?: SourceKind;
+  /** ISO date or timestamp the balance was true. Defaults to the fixture fetch time. */
+  balanceAsOf?: string;
 }
 
 export function account(spec: AccountSpec): SnapshotAccount {
+  const source = spec.source ?? 'plaid';
   return {
-    accountId: spec.id ?? nextId('acct'),
-    itemId: 'item_test',
+    source,
+    accountId: spec.id ?? nextId(source === 'manual' ? 'manual_acct' : 'acct'),
+    itemId: source === 'manual' ? 'manual' : 'item_test',
     institutionName: spec.institution ?? 'Test Bank',
     name: spec.name ?? `${spec.type} account`,
     officialName: null,
@@ -47,6 +55,7 @@ export function account(spec: AccountSpec): SnapshotAccount {
     availableCents: null,
     limitCents: null,
     isoCurrencyCode: 'USD',
+    balanceAsOf: spec.balanceAsOf ?? TEST_FETCHED_AT,
   };
 }
 
@@ -56,10 +65,12 @@ export interface SecuritySpec {
   ticker?: string;
   type: string | null;
   isCashEquivalent?: boolean;
+  source?: SourceKind;
 }
 
 export function security(spec: SecuritySpec): SnapshotSecurity {
   return {
+    source: spec.source ?? 'plaid',
     securityId: spec.id ?? nextId('sec'),
     name: spec.name ?? spec.ticker ?? 'Test Security',
     tickerSymbol: spec.ticker ?? null,
@@ -75,10 +86,12 @@ export interface HoldingSpec {
   /** Dollars. */
   value: number;
   quantity?: number;
+  source?: SourceKind;
 }
 
 export function holding(spec: HoldingSpec): SnapshotHolding {
   return {
+    source: spec.source ?? 'plaid',
     accountId: spec.accountId,
     securityId: spec.securityId,
     quantity: spec.quantity ?? 1,
@@ -97,10 +110,12 @@ export interface TransactionSpec {
   primary?: string;
   detailed?: string;
   pending?: boolean;
+  source?: SourceKind;
 }
 
 export function transaction(spec: TransactionSpec): SnapshotTransaction {
   return {
+    source: spec.source ?? 'plaid',
     transactionId: nextId('txn'),
     accountId: spec.accountId ?? 'acct_checking',
     date: spec.date,
@@ -124,12 +139,15 @@ export interface SnapshotSpec {
   transactionWindow?: { from: string; to: string } | null;
   gaps?: SnapshotGap[];
   fetchedAt?: string;
+  /** Defaults to the kinds present among `accounts`. */
+  sources?: SourceKind[];
 }
 
 export function snapshot(spec: SnapshotSpec = {}): SessionSnapshot {
   return {
     userId: spec.userId ?? TEST_USER_ID,
     fetchedAt: spec.fetchedAt ?? TEST_FETCHED_AT,
+    sources: spec.sources ?? sourcesOf(spec.accounts ?? []),
     accounts: spec.accounts ?? [],
     holdings: spec.holdings ?? [],
     securities: spec.securities ?? [],

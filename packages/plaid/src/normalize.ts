@@ -41,10 +41,13 @@ function toAccountType(raw: string): AccountType {
 export interface AccountContext {
   itemId: string;
   institutionName: string | null;
+  /** When the balance call ran — a live balance is true as of the fetch. */
+  fetchedAt: string;
 }
 
 export function normalizeAccount(account: AccountBase, ctx: AccountContext): SnapshotAccount {
   return {
+    source: 'plaid',
     accountId: account.account_id,
     itemId: ctx.itemId,
     institutionName: ctx.institutionName,
@@ -57,11 +60,13 @@ export function normalizeAccount(account: AccountBase, ctx: AccountContext): Sna
     availableCents: dollarsToCentsOrNull(account.balances.available),
     limitCents: dollarsToCentsOrNull(account.balances.limit),
     isoCurrencyCode: account.balances.iso_currency_code ?? null,
+    balanceAsOf: ctx.fetchedAt,
   };
 }
 
 export function normalizeSecurity(security: Security): SnapshotSecurity {
   return {
+    source: 'plaid',
     securityId: security.security_id,
     name: security.name ?? null,
     tickerSymbol: security.ticker_symbol ?? null,
@@ -73,6 +78,7 @@ export function normalizeSecurity(security: Security): SnapshotSecurity {
 
 export function normalizeHolding(holding: Holding): SnapshotHolding {
   return {
+    source: 'plaid',
     accountId: holding.account_id,
     securityId: holding.security_id,
     quantity: holding.quantity,
@@ -85,6 +91,7 @@ export function normalizeHolding(holding: Holding): SnapshotHolding {
 export function normalizeTransaction(transaction: PlaidTransaction): SnapshotTransaction {
   const pfc = transaction.personal_finance_category;
   return {
+    source: 'plaid',
     transactionId: transaction.transaction_id,
     accountId: transaction.account_id,
     date: transaction.date,

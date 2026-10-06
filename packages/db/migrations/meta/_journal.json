@@ -8,6 +8,13 @@
       "when": 1785715895378,
       "tag": "0000_curvy_cable",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791240243227,
+      "tag": "0001_manual_ledger",
+      "breakpoints": true
     }
   ]
 }

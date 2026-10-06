@@ -18,6 +18,8 @@ const LINKS = [
   { href: '/history', label: 'History' },
   { href: '/accounts', label: 'Accounts' },
   { href: '/goals', label: 'Goals' },
+  { href: '/sources', label: 'Sources' },
+  { href: '/import', label: 'Import' },
 ];
 
 export function Nav() {

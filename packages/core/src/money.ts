@@ -93,3 +93,80 @@ export function jsonReplacer(_key: string, value: unknown): unknown {
 export function toJson(value: unknown, space?: number): string {
   return JSON.stringify(value, jsonReplacer, space);
 }
+
+/**
+ * Parse an amount exactly as a person or a document wrote it into integer
+ * cents, without ever passing through a float (§0.3).
+ *
+ * This is the one parser for amounts that arrive as TEXT — a typed balance, a
+ * CSV cell, a figure a model transcribed off a statement (§0.8). It is stricter
+ * than `dollarsToCents`, not a second float boundary: the digits go straight from
+ * the string into a bigint, so there is no rounding to argue about at all.
+ *
+ * Accepted:   4182.09  $4,182.09  -4.85  +4.85  (1,234.56)  4.85-  4,182.09 CR  12.00 DR
+ * Rejected:   more than 2 decimals, a misplaced thousands separator, a
+ *             European-style "1.234,56", any other currency symbol, any stray
+ *             text. Rejection is an answer, not a failure: a figure we cannot
+ *             read with certainty is shown to the person, never guessed at.
+ *
+ * Sign: a leading or trailing minus and accounting parentheses are negative.
+ * `CR` is negative and `DR` positive, the convention a statement uses for a
+ * credit or debit against the balance it reports. Which direction that means
+ * in Plaid's transaction convention is decided later, by the importer's sign
+ * step (§3.4) — this function only reads what the text says.
+ */
+export type ParsedAmount = { ok: true; cents: Cents } | { ok: false; reason: string };
+
+const AMOUNT_BODY = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/;
+
+export function parseAmount(raw: string): ParsedAmount {
+  let text = raw.replace(/\s+/g, ' ').trim();
+  if (text === '') return { ok: false, reason: 'empty' };
+
+  let negative = false;
+  let signSeen = false;
+  // At most one sign marker. Two (e.g. "--4", "(-4)", "4- CR") would cancel
+  // out into a positive the writer never meant, so they are rejected instead.
+  const sign = (isNegative: boolean): boolean => {
+    if (signSeen) return false;
+    signSeen = true;
+    negative = isNegative;
+    return true;
+  };
+  const reject = (): ParsedAmount => ({
+    ok: false,
+    reason: `"${raw.trim()}" is not an amount this parser can read with certainty`,
+  });
+
+  const suffix = /\s?(CR|DR)$/i.exec(text);
+  if (suffix) {
+    sign(suffix[1]!.toUpperCase() === 'CR');
+    text = text.slice(0, suffix.index).trim();
+  }
+  if (text.startsWith('(') && text.endsWith(')')) {
+    if (!sign(true)) return reject();
+    text = text.slice(1, -1).trim();
+  }
+  if (text.startsWith('-') || text.startsWith('+')) {
+    if (!sign(text.startsWith('-'))) return reject();
+    text = text.slice(1).trim();
+  }
+  if (text.startsWith('$')) {
+    text = text.slice(1).trim();
+    // "$-4.85" as well as "-$4.85".
+    if (text.startsWith('-')) {
+      if (!sign(true)) return reject();
+      text = text.slice(1).trim();
+    }
+  }
+  if (text.endsWith('-')) {
+    if (!sign(true)) return reject();
+    text = text.slice(0, -1).trim();
+  }
+
+  if (!AMOUNT_BODY.test(text)) return reject();
+
+  const [whole, frac = ''] = text.replace(/,/g, '').split('.') as [string, string?];
+  const magnitude = BigInt(whole) * 100n + BigInt((frac ?? '').padEnd(2, '0') || '0');
+  return { ok: true, cents: negative ? -magnitude : magnitude };
+}

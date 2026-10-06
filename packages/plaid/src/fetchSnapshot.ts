@@ -1,11 +1,13 @@
 /**
- * Live fetch → in-memory session snapshot (§7).
+ * Plaid as a source (§7a): live fetch → a `SourceResult` that `mergeSources`
+ * folds into the request-scoped snapshot alongside the manual ledger.
  *
  * Nothing here writes financial data to Postgres. The DB is touched only to
  * read which items a user has linked and to decrypt their access tokens.
  */
 
-import type { SessionSnapshot, SnapshotAccount, SnapshotGap, SnapshotHolding, SnapshotSecurity, SnapshotTransaction, TraceRecorder } from '@pfg/core';
+import { transactionWindowFor } from '@pfg/core';
+import type { SourceResult, SnapshotAccount, SnapshotGap, SnapshotHolding, SnapshotSecurity, SnapshotTransaction, TraceRecorder } from '@pfg/core';
 import { type Database, decryptToken, plaidItems } from '@pfg/db';
 import { and, eq } from 'drizzle-orm';
 import type { PlaidApi } from 'plaid';
@@ -21,7 +23,7 @@ const TRANSACTIONS_PAGE_SIZE = 500;
  */
 const MAX_TRANSACTION_PAGES = 20;
 
-export interface FetchSnapshotOptions {
+export interface FetchPlaidSourceOptions {
   userId: string;
   db: Database;
   plaid?: PlaidApi;
@@ -39,18 +41,14 @@ export interface FetchSnapshotOptions {
   trace?: TraceRecorder;
 }
 
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 /**
- * Fetch every linked item for a user and assemble one snapshot.
+ * Fetch every linked item for a user into one Plaid `SourceResult`.
  *
  * Per-item failures degrade into `gaps` rather than throwing: one bank being
  * down should still let the user see the rest of their picture, with the
  * omission stated plainly (§6) instead of silently dropped.
  */
-export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<SessionSnapshot> {
+export async function fetchPlaidSource(options: FetchPlaidSourceOptions): Promise<SourceResult> {
   const {
     userId,
     db,
@@ -90,13 +88,12 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
   const gaps: SnapshotGap[] = [];
   const seenSecurityIds = new Set<string>();
 
-  const to = isoDate(now);
-  const from = isoDate(new Date(now.getTime() - transactionDays * 24 * 60 * 60 * 1000));
+  const { from, to } = transactionWindowFor(transactionDays, now);
 
   for (const item of items) {
     const accessToken = decryptToken(item.accessTokenEncrypted);
     const institutionName = item.institutionName;
-    const gapBase = { itemId: item.plaidItemId, institutionName };
+    const gapBase = { source: 'plaid' as const, itemId: item.plaidItemId, institutionName };
 
     // --- Balances: the one call everything else depends on ------------------
     let itemAccounts: SnapshotAccount[] = [];
@@ -108,7 +105,7 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
         (r) => ({ count: r.data.accounts.length, detail: institutionName ?? undefined }),
       );
       itemAccounts = response.data.accounts.map((a) =>
-        normalizeAccount(a, { itemId: item.plaidItemId, institutionName }),
+        normalizeAccount(a, { itemId: item.plaidItemId, institutionName, fetchedAt: now.toISOString() }),
       );
       accounts.push(...itemAccounts);
     } catch (error) {
@@ -160,8 +157,7 @@ export async function fetchSnapshot(options: FetchSnapshotOptions): Promise<Sess
   }
 
   return {
-    userId,
-    fetchedAt: now.toISOString(),
+    kind: 'plaid',
     accounts,
     holdings,
     securities,

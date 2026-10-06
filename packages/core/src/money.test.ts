@@ -3,6 +3,7 @@ import {
   absCents,
   dollarsToCents,
   dollarsToCentsOrNull,
+  parseAmount,
   formatCents,
   ratioToBasisPoints,
   sumCents,
@@ -105,5 +106,49 @@ describe('toJson', () => {
 
   it('throws without the replacer, which is why it exists', () => {
     expect(() => JSON.stringify({ a: 1n })).toThrow(TypeError);
+  });
+});
+
+describe('parseAmount (§0.3, §0.8 — text to cents, no float)', () => {
+  const cents = (raw: string): bigint | string => {
+    const r = parseAmount(raw);
+    return r.ok ? r.cents : `rejected`;
+  };
+
+  it('reads the ordinary forms to exact cents', () => {
+    expect(cents('4182.09')).toBe(418_209n);
+    expect(cents('$4,182.09')).toBe(418_209n);
+    expect(cents('  $ 4,182.09 ')).toBe(418_209n);
+    expect(cents('1,234,567.8')).toBe(123_456_780n);
+    expect(cents('60000')).toBe(6_000_000n);
+    expect(cents('0.05')).toBe(5n);
+  });
+
+  it('reads every accounting negative', () => {
+    expect(cents('-4.85')).toBe(-485n);
+    expect(cents('-$4.85')).toBe(-485n);
+    expect(cents('$-4.85')).toBe(-485n);
+    expect(cents('(89.00)')).toBe(-8_900n);
+    expect(cents('($1,234.56)')).toBe(-123_456n);
+    expect(cents('4.85-')).toBe(-485n);
+    expect(cents('4,182.09 CR')).toBe(-418_209n);
+    expect(cents('12.00 DR')).toBe(1_200n);
+    expect(cents('+4.85')).toBe(485n);
+  });
+
+  it('never rounds: a value a float would mangle comes through exact', () => {
+    // dollarsToCents(1.115) is 111 because the float is 1.11499…; the text is not.
+    expect(cents('1.11')).toBe(111n);
+    expect(cents('9007199254740993.99')).toBe(900_719_925_474_099_399n);
+  });
+
+  it('rejects what it cannot read with certainty', () => {
+    const bad = [
+      '', '1.234,56', '1,23.00', '12,3456', '4.855', '€4.85', '4.85 USD', 'abc', '$',
+      '--4', '-$-4', '((4))', '(4.00) CR', '-4.00-', '1 234.00',
+    ];
+    for (const raw of bad) {
+      expect(cents(raw), raw).toBe('rejected');
+    }
   });
 });

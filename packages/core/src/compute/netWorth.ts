@@ -1,10 +1,22 @@
 import { type Ctx, requireSnapshot } from '../context.js';
 import { type Cents, ZERO } from '../money.js';
 import { type Provenance, type ToolResult, result } from '../provenance.js';
-import { LIABILITY_TYPES, type AccountType, gapNotes } from '../snapshot.js';
+import {
+  LIABILITY_TYPES,
+  type AccountType,
+  type SourceKind,
+  gapNotes,
+  sourcesOf,
+  staleBalanceNotes,
+  balanceOriginNotes,
+} from '../snapshot.js';
 
 export interface NetWorthLine {
   accountId: string;
+  /** Where this line's balance came from: a live bank fetch, or your own records. */
+  source: SourceKind;
+  /** When this line's balance was true — not necessarily when the total was computed. */
+  balanceAsOf: string;
   name: string;
   institutionName: string | null;
   type: AccountType;
@@ -31,7 +43,7 @@ export interface NetWorthData {
   liabilitiesCents: Cents;
   /** Per-account breakdown, so the UI can show what rolled into the total. */
   lines: NetWorthLine[];
-  /** Accounts skipped because Plaid returned no current balance. */
+  /** Accounts skipped because their source reported no current balance. */
   excludedAccountIds: string[];
 }
 
@@ -67,6 +79,8 @@ export function netWorth(ctx: Ctx): ToolResult<NetWorthData> {
 
     lines.push({
       accountId: account.accountId,
+      source: account.source,
+      balanceAsOf: account.balanceAsOf,
       name: account.name,
       institutionName: account.institutionName,
       type: account.type,
@@ -77,7 +91,14 @@ export function netWorth(ctx: Ctx): ToolResult<NetWorthData> {
     });
   }
 
-  const notes = gapNotes(snapshot, 'balances');
+  const counted = new Set(lines.map((l) => l.accountId));
+  // A total mixing a statement balance from August with a balance fetched this
+  // morning is accurate as of no single moment; that is said, per account (§4).
+  const notes = [
+    ...gapNotes(snapshot, 'balances'),
+    ...balanceOriginNotes(snapshot, counted),
+    ...staleBalanceNotes(snapshot, counted),
+  ];
   if (excludedAccountIds.length > 0) {
     notes.push(
       `${excludedAccountIds.length} account(s) reported no current balance and are ` +
@@ -93,6 +114,7 @@ export function netWorth(ctx: Ctx): ToolResult<NetWorthData> {
       'Sum of current balances on asset accounts (depository, investment, brokerage, other) ' +
       'minus sum of current balances on liability accounts (credit, loan).',
     inputs: ['getBalances'],
+    sources: sourcesOf(snapshot.accounts.filter((a) => counted.has(a.accountId))),
     ...(notes.length > 0 ? { notes } : {}),
   };
 

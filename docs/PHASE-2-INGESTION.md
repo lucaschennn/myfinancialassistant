@@ -12,6 +12,26 @@ evidence cards — computed from them.
 becomes "the merge of every source", where Plaid is one source that is fetched live and never
 stored, and the manual ledger is another that is stored because nothing else holds it.
 
+> **As built (2026-10-05).** Steps 1–7 of §8 are done; step 8, the Checkpoint 2 run on real
+> documents, is not. STATE.md "Where Phase 2 landed" is the account of what was verified and how.
+> Where the build deliberately differs from this spec:
+>
+> - **`fetchSnapshot` was renamed `fetchPlaidSource`** (§1.6). It no longer returns a snapshot;
+>   keeping the name would have lied at every call site.
+> - **Text amounts go through `parseAmount`, not `dollarsToCents`** (§4.3). It parses the string
+>   straight into bigint cents with no float at all — stricter, not a second float boundary.
+> - **The draft is derived, never stored** (§3.2, §5). `draft_json` holds the user's decisions
+>   and, for a PDF, the model's verbatim transcription; the draft is rebuilt from the encrypted
+>   bytes on every read and again at commit.
+> - **Reject deletes** the document row and bytes, so the same file can be uploaded again;
+>   `parsed` and `rejected` statuses are unused.
+> - **Evidence names a document by kind and import date, never by filename** (§9, Checkpoint 2
+>   step 4) — `balanceOriginNotes` in `snapshot.ts`.
+> - **A quoted statement period resolves to its end date** (§3.5). The live model quoted "Aug 1,
+>   2026 - Aug 31, 2026" for the statement date; the fixtures had not anticipated it.
+> - **Plaid items can be disconnected** from `/sources` (`disconnectPlaidItem`), which Checkpoint 2
+>   step 1 needed and nothing provided.
+
 ---
 
 ## 0. Read this first: what must not break

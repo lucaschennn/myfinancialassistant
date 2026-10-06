@@ -1,7 +1,7 @@
 import { type Ctx, requireSnapshot } from '../context.js';
 import { type Cents, ZERO, ratioToBasisPoints } from '../money.js';
 import { type Provenance, type ToolResult, result } from '../provenance.js';
-import { gapNotes, securityIndex } from '../snapshot.js';
+import { gapNotes, securityIndex, sourcesOf } from '../snapshot.js';
 
 /** Coarse buckets folded up from Plaid's finer `security.type` values. */
 export type AssetClass =
@@ -167,8 +167,10 @@ export function assetAllocation(
     accountIds,
     computation:
       'Each holding\'s institution-reported market value, grouped into asset classes by ' +
-      'Plaid security type, with each bucket expressed as a share of total holdings value.',
+      'security type (the Plaid taxonomy, used for every source), with each bucket expressed ' +
+      'as a share of total holdings value.',
     inputs: ['getHoldings'],
+    sources: holdings.length > 0 ? sourcesOf(holdings) : snapshot.sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 

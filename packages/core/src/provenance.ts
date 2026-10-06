@@ -4,6 +4,8 @@
  * literally unable to exist without one, because `ToolResult` requires it.
  */
 
+import type { SourceKind } from './snapshot.js';
+
 export type ProvenanceSource =
   /** Fetched live from Plaid into the request-scoped snapshot. */
   | 'plaid'
@@ -32,6 +34,13 @@ export interface Provenance {
    * definition, pending transactions counted. Surfaced to the user, not hidden.
    */
   notes?: string[];
+  /**
+   * Data origins behind this figure (§4). `source` says HOW the figure was
+   * obtained (a live fetch, a DB read, a computation); this says WHERE the
+   * underlying data came from. A merged net worth is `source: 'compute'` and
+   * `sources: ['plaid', 'manual']`, and both facts are worth stating.
+   */
+  sources?: SourceKind[];
 }
 
 export interface ToolResult<T> {
@@ -108,6 +117,11 @@ export interface ReasoningTrace {
  *
  * Redacted by suffix, matching the convention `humanize()` relies on: any key
  * ending in `Cents` is money by construction.
+ *
+ * Phase 2 note, for whoever writes the insight_log writer (Phase 3): a
+ * `documentId` is a safe reference, but an uploaded document's ORIGINAL
+ * FILENAME is not — real ones read `chase_statement_4412_aug2026.pdf` and carry
+ * an account number. Add filenames to these rules at the same time as the writer.
  */
 function redactParams(params: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};

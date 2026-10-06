@@ -1,7 +1,7 @@
 import { type Ctx, requireSnapshot } from '../context.js';
 import { type Cents, ZERO, ratioToBasisPoints } from '../money.js';
 import { type Provenance, type ToolResult, result } from '../provenance.js';
-import { gapNotes } from '../snapshot.js';
+import { type SourceKind, gapNotes, sourcesOf } from '../snapshot.js';
 import { type Period, type SelectOptions, assertPeriod, selectTransactions } from './period.js';
 
 export interface CategoryDetailLine {
@@ -61,6 +61,7 @@ export function spendingByCategory(
   >();
   let totalSpendCents = ZERO;
   let uncategorizedCents = ZERO;
+  const uncategorizedSources = new Set<SourceKind>();
 
   for (const t of selection.transactions) {
     // Income lands here as a negative amount. Only spending categories are of
@@ -70,7 +71,10 @@ export function spendingByCategory(
     if (primary === 'INCOME') continue;
 
     totalSpendCents += t.amountCents;
-    if (primary === UNCATEGORIZED) uncategorizedCents += t.amountCents;
+    if (primary === UNCATEGORIZED) {
+      uncategorizedCents += t.amountCents;
+      uncategorizedSources.add(t.source);
+    }
 
     const group = groups.get(primary) ?? { spendCents: ZERO, count: 0, detailed: new Map() };
     group.spendCents += t.amountCents;
@@ -103,7 +107,13 @@ export function spendingByCategory(
 
   const notes = [...gapNotes(snapshot, 'transactions'), ...selection.notes];
   if (uncategorizedCents !== ZERO) {
-    notes.push('Some transactions arrived from Plaid without a category and are grouped as UNCATEGORIZED.');
+    // Worded from the rows actually involved (§4): an imported CSV row without a
+    // category did not "arrive from Plaid", and saying so would be false.
+    const origins = [
+      ...(uncategorizedSources.has('plaid') ? ['arrived from Plaid without a category'] : []),
+      ...(uncategorizedSources.has('manual') ? ['came from your own records without a category'] : []),
+    ];
+    notes.push(`Some transactions ${origins.join(' or ')} and are grouped as UNCATEGORIZED.`);
   }
 
   const provenance: Provenance = {
@@ -115,6 +125,7 @@ export function spendingByCategory(
       "Outflows over the period grouped by Plaid's personal_finance_category (primary, then " +
       'detailed). Income-category transactions are excluded; refunds net against their category.',
     inputs: ['getTransactions'],
+    sources: selection.transactions.length > 0 ? sourcesOf(selection.transactions) : snapshot.sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 

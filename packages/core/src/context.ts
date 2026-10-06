@@ -28,8 +28,9 @@ export interface Ctx {
 export class MissingSnapshotError extends Error {
   constructor(tool: string) {
     super(
-      `${tool} needs a session snapshot. Fetch live Plaid data with ` +
-        `fetchSnapshot() and pass it on ctx before calling this tool.`,
+      `${tool} needs a session snapshot. Read ` +
+        `each source (fetchPlaidSource, the manual ledger), merge them with mergeSources(), ` +
+        `and pass the result on ctx before calling this tool.`,
     );
     this.name = 'MissingSnapshotError';
   }

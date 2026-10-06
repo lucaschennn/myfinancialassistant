@@ -13,7 +13,7 @@ export {
   normalizeTransaction,
   type AccountContext,
 } from './normalize.js';
-export { fetchSnapshot, type FetchSnapshotOptions } from './fetchSnapshot.js';
+export { fetchPlaidSource, type FetchPlaidSourceOptions } from './fetchSnapshot.js';
 export {
   createLinkToken,
   exchangePublicToken,
@@ -23,3 +23,9 @@ export {
   type CreateSandboxItemOptions,
   type LinkedItemSummary,
 } from './link.js';
+export {
+  listPlaidItems,
+  disconnectPlaidItem,
+  PlaidItemNotFoundError,
+  type PlaidItemSummary,
+} from './items.js';

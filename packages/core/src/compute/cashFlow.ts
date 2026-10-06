@@ -1,7 +1,7 @@
 import { type Ctx, requireSnapshot } from '../context.js';
 import { type Cents, ZERO } from '../money.js';
 import { type Provenance, type ToolResult, result } from '../provenance.js';
-import { gapNotes } from '../snapshot.js';
+import { gapNotes, sourcesOf } from '../snapshot.js';
 import { type Period, type SelectOptions, assertPeriod, selectTransactions } from './period.js';
 
 export interface CashFlowData {
@@ -50,9 +50,11 @@ export function cashFlow(ctx: Ctx, params: CashFlowParams): ToolResult<CashFlowD
     accountIds: selection.accountIds,
     period,
     computation:
-      'Money arriving and money leaving, summed separately over the period. Plaid reports ' +
-      'outflows as positive amounts; both sides are reported here as positive magnitudes.',
+      'Money arriving and money leaving, summed separately over the period. Outflows are ' +
+      'stored as positive amounts (the Plaid convention, which imported records are converted ' +
+      'to); both sides are reported here as positive magnitudes.',
     inputs: ['getTransactions'],
+    sources: selection.transactions.length > 0 ? sourcesOf(selection.transactions) : snapshot.sources,
     ...(notes.length > 0 ? { notes } : {}),
   };
 

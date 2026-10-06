@@ -25,7 +25,8 @@
     "link:sandbox": "tsx scripts/link-sandbox-item.ts",
     "set:profile": "tsx scripts/set-profile.ts",
     "checkpoint0": "tsx scripts/checkpoint0-summary.ts",
-    "agent:smoke": "tsx scripts/agent-smoke.ts"
+    "agent:smoke": "tsx scripts/agent-smoke.ts",
+    "transcribe:smoke": "tsx scripts/transcribe-smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

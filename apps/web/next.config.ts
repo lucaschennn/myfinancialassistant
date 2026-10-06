@@ -42,7 +42,7 @@ loadRootEnv();
 const nextConfig: NextConfig = {
   // The workspace packages ship raw TypeScript (`"main": "./src/index.ts"`)
   // rather than a build step, so Next must compile them itself.
-  transpilePackages: ['@pfg/core', '@pfg/db', '@pfg/plaid'],
+  transpilePackages: ['@pfg/core', '@pfg/db', '@pfg/ingest', '@pfg/plaid'],
 
   // `postgres` opens real sockets — it must stay a Node module rather than
   // being bundled into the server build.

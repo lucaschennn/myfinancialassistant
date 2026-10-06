@@ -17,15 +17,18 @@ import {
   formatCents,
   runWorkflow,
 } from '@pfg/core';
+import Link from 'next/link';
 import { ConnectBank } from './ConnectBank';
+import { SourceBadge } from './SourceBadge';
 import { EvidenceCard, FigureEvidence, LimitationStep } from './Evidence';
 import { SpendTarget } from './SpendTarget';
 import { NetworkPanel } from './NetworkPanel';
 import { Chat } from './Chat';
 import { requireUser } from '@/server/auth';
-import { hasLinkedItems, requireSnapshotCtx, traceRender } from '@/server/session';
+import { hasAnySource, requireSnapshotCtx, traceRender } from '@/server/session';
 
-// Live Plaid fetch on every render (§7 refetch-per-turn) — nothing to cache.
+// Every source re-read on every render (§7): Plaid live, the manual ledger
+// from Postgres. Nothing to cache.
 export const dynamic = 'force-dynamic';
 
 function entryData<T>(bundle: EvidenceBundle, tool: string): T | undefined {
@@ -38,16 +41,23 @@ const percent = (bps: number | null): string =>
 export default async function DashboardPage() {
   const user = await requireUser();
 
-  if (!(await hasLinkedItems(user.id))) {
+  if (!(await hasAnySource(user.id))) {
     return (
       <div className="stack">
         <div className="card">
-          <h2>Connect your first account</h2>
+          <h2>Add your first account</h2>
           <p className="card-sub">
-            Jolly reads your balances, holdings, and recent transactions live from Plaid each
-            time you ask something. Nothing financial is stored on our side.
+            Two ways in, and you can use both. Connect a bank and Jolly reads it live through
+            Plaid each time you look, storing none of it. Or add accounts from your own records,
+            typed in or imported from a statement, which are kept encrypted because nothing else
+            holds them.
           </p>
           <ConnectBank hasAccounts={false} />
+          <p style={{ marginTop: 14 }}>
+            <Link className="btn" href="/accounts/new">
+              Add an account by hand
+            </Link>
+          </p>
         </div>
       </div>
     );
@@ -170,7 +180,7 @@ export default async function DashboardPage() {
       {/* --- accounts ----------------------------------------------------- */}
       {nw && accounts && (
         <div className="card">
-          <h2>Connected accounts</h2>
+          <h2>Accounts</h2>
           <p className="card-sub">
             {accounts.accounts.length} account(s) across {accounts.institutions.length}{' '}
             institution(s).
@@ -189,6 +199,7 @@ export default async function DashboardPage() {
                   <td>
                     {line.name}
                     {line.mask && <span className="faint"> ····{line.mask}</span>}
+                    <SourceBadge source={line.source} />
                     {line.institutionName && (
                       <div className="faint">{line.institutionName}</div>
                     )}
@@ -201,8 +212,11 @@ export default async function DashboardPage() {
               ))}
             </tbody>
           </table>
-          <div style={{ marginTop: 18 }}>
+          <div className="form-actions" style={{ marginTop: 18 }}>
             <ConnectBank hasAccounts />
+            <Link className="btn" href="/accounts/new">
+              Add an account by hand
+            </Link>
           </div>
         </div>
       )}

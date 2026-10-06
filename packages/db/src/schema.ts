@@ -1,10 +1,13 @@
 /**
  * Postgres schema (§3).
  *
- * What is NOT here is the point: no balances, no holdings, no securities, no
- * transaction ledger. Plaid is the system of record for all of those and they
+ * What is NOT here is the point: no copy of Plaid's balances, holdings,
+ * securities, or transactions. Plaid is the system of record for those and they
  * live only in a request-scoped in-memory snapshot (§0.4, §7). The tables below
- * hold tokens, the user's own context, PII-free audit, and derived aggregates.
+ * hold tokens, the user's own context, PII-free audit, derived aggregates, and —
+ * from Phase 2 — the manual ledger: financial data from the user's own documents,
+ * stored because no external system holds it (§0.4's corollary). The `manual_*`
+ * tables are the only durable financial data in the schema.
  *
  * Every money column is BIGINT cents (§0.3) — never numeric, never float.
  */
@@ -12,9 +15,12 @@
 import { relations } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   date,
   index,
+  integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -202,6 +208,202 @@ export const insightLog = pgTable(
   (t) => [index('insight_log_user_id_idx').on(t.userId)],
 );
 
+// ---------------------------------------------------------------------------
+// Manual sources (Phase 2). Everything below is financial data the user handed
+// over themselves. It is stored because there is nothing to refetch it from —
+// the test in §0.4 — and every row is scoped by user_id and user-deletable.
+// ---------------------------------------------------------------------------
+
+/**
+ * An artifact the user handed over: a CSV export, a PDF statement, or a typed
+ * entry. The bytes are NOT here — they live encrypted in a DocumentStore (§9)
+ * under `storageKey`. A `manual_entry` row has no bytes and exists so a typed
+ * account has a provenance target like every other row.
+ *
+ * `draftJson` holds the parse proposal awaiting review. It contains financial
+ * figures, so it is transient by design: cleared on commit or reject, because
+ * past that point it is a duplicate of the ledger with no reader.
+ */
+export const documents = pgTable(
+  'documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** csv | pdf | manual_entry */
+    kind: text('kind').notNull(),
+    /** Display only. Attacker-controlled; NEVER a storage path (§9). */
+    originalFilename: text('original_filename'),
+    /** From a content sniff, not the extension. */
+    mimeType: text('mime_type'),
+    byteSize: integer('byte_size'),
+    /** Null for manual_entry. Unique per user: the duplicate-statement guard. */
+    sha256: text('sha256'),
+    /** Opaque, server-generated: `${userId}/${uuid}`. Null for manual_entry. */
+    storageKey: text('storage_key'),
+    /** uploaded | parsed | needs_review | committed | failed | rejected */
+    status: text('status').notNull().default('uploaded'),
+    pageCount: integer('page_count'),
+    /** Human-readable, e.g. "no text layer — this looks like a scanned image". */
+    failureReason: text('failure_reason'),
+    draftJson: jsonb('draft_json').$type<unknown>(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+    committedAt: timestamp('committed_at', { withTimezone: true }),
+  },
+  (t) => [
+    // NULLs are distinct in a Postgres unique constraint, so any number of
+    // manual_entry rows (sha256 NULL) coexist while a re-uploaded file collides.
+    unique('documents_user_sha256_unique').on(t.userId, t.sha256),
+    index('documents_user_id_idx').on(t.userId),
+  ],
+);
+
+/**
+ * An account known only from the user's own records — the same shape the
+ * snapshot needs. Archived rather than deleted, so balance rows never dangle;
+ * the snapshot reads `archived_at IS NULL`. `type` is one of AccountType,
+ * validated in core on write: the column is text, so the safety comes from there.
+ */
+export const manualAccounts = pgTable(
+  'manual_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    officialName: text('official_name'),
+    mask: text('mask'),
+    type: text('type').notNull(),
+    subtype: text('subtype'),
+    institutionName: text('institution_name'),
+    isoCurrencyCode: text('iso_currency_code').notNull().default('USD'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('manual_accounts_user_id_idx').on(t.userId)],
+);
+
+/**
+ * A balance SERIES, one row per (account, date) — not a mutable column.
+ * Statements are dated, net-worth history needs something honest to chart for a
+ * manual user, and correcting a typo should not destroy the previous value.
+ *
+ * Liability balances are stored POSITIVE, the amount owed, exactly as Plaid
+ * reports them. The sign flip happens in `netWorth` and nowhere else.
+ */
+export const manualBalances = pgTable(
+  'manual_balances',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => manualAccounts.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    asOfDate: date('as_of_date').notNull(),
+    currentCents: bigint('current_cents', { mode: 'bigint' }).notNull(),
+    availableCents: bigint('available_cents', { mode: 'bigint' }),
+    limitCents: bigint('limit_cents', { mode: 'bigint' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Re-importing a statement updates that date's balance, never adds a second.
+    unique('manual_balances_account_date_unique').on(t.accountId, t.asOfDate),
+    index('manual_balances_user_id_idx').on(t.userId),
+  ],
+);
+
+/**
+ * `amountCents` is in PLAID'S SIGN CONVENTION: positive = money leaving the
+ * account. `cashFlow` and `savingsRate` interpret exactly that, so the importer
+ * converts at the boundary and nothing past it knows a bank used another one.
+ */
+export const manualTransactions = pgTable(
+  'manual_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => manualAccounts.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    date: date('date').notNull(),
+    amountCents: bigint('amount_cents', { mode: 'bigint' }).notNull(),
+    name: text('name').notNull(),
+    merchantName: text('merchant_name'),
+    categoryPrimary: text('category_primary'),
+    categoryDetailed: text('category_detailed'),
+    externalId: text('external_id'),
+    isoCurrencyCode: text('iso_currency_code').notNull().default('USD'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The practical dedupe key when a bank gives no transaction id, which is
+    // usual. Two identical coffees on one day collapse to one — chosen over
+    // double-counting overlapping statements, and reported as skipped on commit.
+    unique('manual_transactions_dedupe_unique').on(t.accountId, t.date, t.amountCents, t.name),
+    index('manual_transactions_user_date_idx').on(t.userId, t.date),
+  ],
+);
+
+/** Securities known from the user's records. `type` uses Plaid's taxonomy verbatim (§10). */
+export const manualSecurities = pgTable(
+  'manual_securities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name'),
+    tickerSymbol: text('ticker_symbol'),
+    type: text('type'),
+    closePriceCents: bigint('close_price_cents', { mode: 'bigint' }),
+    isCashEquivalent: boolean('is_cash_equivalent').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('manual_securities_user_id_idx').on(t.userId)],
+);
+
+/**
+ * A position on a date. `valueCents` is the institution-reported value and is
+ * NEVER computed as quantity × price here — if the statement states a value,
+ * that is the fact. `quantity` is the one non-cents number in the schema: a
+ * share count, genuinely fractional, and not money.
+ */
+export const manualHoldings = pgTable(
+  'manual_holdings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => manualAccounts.id, { onDelete: 'cascade' }),
+    securityId: uuid('security_id')
+      .notNull()
+      .references(() => manualSecurities.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    quantity: numeric('quantity', { mode: 'number' }).notNull(),
+    costBasisCents: bigint('cost_basis_cents', { mode: 'bigint' }),
+    valueCents: bigint('value_cents', { mode: 'bigint' }).notNull(),
+    asOfDate: date('as_of_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('manual_holdings_account_security_date_unique').on(t.accountId, t.securityId, t.asOfDate),
+    index('manual_holdings_user_id_idx').on(t.userId),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many, one }) => ({
   items: many(plaidItems),
   accounts: many(linkedAccounts),
@@ -230,3 +432,9 @@ export type UserProfile = typeof userProfile.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type NetworthSnapshot = typeof networthSnapshots.$inferSelect;
 export type InsightLogRow = typeof insightLog.$inferSelect;
+export type DocumentRow = typeof documents.$inferSelect;
+export type ManualAccount = typeof manualAccounts.$inferSelect;
+export type ManualBalance = typeof manualBalances.$inferSelect;
+export type ManualTransaction = typeof manualTransactions.$inferSelect;
+export type ManualSecurity = typeof manualSecurities.$inferSelect;
+export type ManualHolding = typeof manualHoldings.$inferSelect;

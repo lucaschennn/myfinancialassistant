@@ -13,14 +13,14 @@ carrying its own provenance.
   and next phase
 - this README — how to run it
 
-**Status: Phases 0, 1 and 1.5 built and verified against the Plaid sandbox. Phase 2 — document
-ingestion — is the current work. Not deployed, deliberately: that is Phase 4 now.** Auth, the web
-app, the agent loop, all six workflows, the network trace, and the routes `/history`,
-`/accounts`, `/goals` are in, and a brand-new Clerk user has walked the whole thing locally.
+**Status: Phases 0, 1, 1.5 and 2 built. Phase 2 — document ingestion — is built and tested; its
+checkpoint run on the author's own documents is next. Not deployed, deliberately: that is Phase 4.**
+Auth, the web app, the agent loop, all six workflows, the network trace, and the routes
+`/history`, `/accounts`, `/goals` are in, and a brand-new Clerk user has walked them locally.
 
-Everything so far has run on First Platypus Bank, a Plaid sandbox fiction. Phase 2 is how real
-data gets in without production Plaid access: the user's own CSV exports and PDF statements.
-See `docs/PHASE-2-INGESTION.md`.
+Phase 2 is how real data gets in without production Plaid access: your own CSV exports and PDF
+statements, or accounts typed in by hand, feeding the same snapshot Plaid does — so the app works
+with no bank connected at all. See `docs/PHASE-2-INGESTION.md` and `docs/STATE.md`.
 
 ## The one idea worth internalising
 
@@ -32,15 +32,18 @@ model. Transparency is structural — a figure without a source cannot be constr
 
 ```
 packages/core    tools, compute, workflows, provenance, agent prompts + §0.1 guard
-packages/db      Drizzle schema, migrations, token encryption
-packages/plaid   Plaid client, live fetch, dollars→cents normalisation
+packages/db      Drizzle schema, migrations, token and document encryption
+packages/plaid   Plaid client, live fetch, dollars→cents normalisation   — a source
+packages/ingest  documents: store, CSV/PDF parsing, transcription guard,  — a source
+                 review drafts, commit, and the manual-ledger reader
 apps/web         Next.js app — auth, Plaid Link, dashboard, chat, agent loop
 apps/mcp         thin MCP server (local dev harness — never deployed)
 scripts/         sandbox linking, profile seeding, checkpoint + agent smoke runners
 ```
 
-`core` depends only on `db`. `plaid` depends on `core` for types and builds the snapshot that
-gets passed *into* core — that direction is what keeps `core` pure and testable.
+`core` depends only on `db`. `plaid` and `ingest` depend on `core` and each produce a
+`SourceResult`; `mergeSources` in `core` folds them into the snapshot that gets passed *into*
+the tools — that direction is what keeps `core` pure and testable.
 
 `apps/web` holds the two things that genuinely need a running app: the Anthropic calls and
 React. Everything testable about the agent — the Jolly system prompt, the router's schema and
@@ -49,12 +52,16 @@ the normal test suite rather than only against a live model.
 
 ## What persists, and what does not
 
-Postgres holds tokens, user-entered context, a PII-free audit trail, and derived aggregates.
-It holds **no balances, holdings, securities, or transactions** — those are fetched live from
-Plaid into a request-scoped in-memory snapshot and discarded (§0.4, §7).
+Postgres holds tokens, user-entered context, a PII-free audit trail, derived aggregates, and
+your own records. It holds **no copy of Plaid's balances, holdings, securities, or
+transactions** — those are fetched live into a request-scoped in-memory snapshot and discarded
+(§0.4, §7).
 
-The only financial values that persist are `networth_snapshots`: computed numbers, not a
-mirror of Plaid data.
+The rule that decides it: *can we get this back from somewhere else on demand?* Plaid data, yes,
+so it is never stored. A statement you uploaded, no — so it is stored: the original file
+encrypted in `.documents/` (gitignored) under its own key, and the ledger built from it in the
+`manual_*` tables. Every row says which source it came from, and the UI labels every account
+"Live · Plaid" or "Your records".
 
 ## Setup
 
@@ -72,6 +79,14 @@ npm run db:up             # docker compose postgres on :5433
 npm run db:migrate
 npm run link:sandbox      # creates a sandbox user + links a bank; prints the user UUID
 npm run set:profile -- --spend 60000 --income 120000 --risk moderate
+```
+
+Generate the two encryption keys into `.env` — they must differ, and the document loader
+refuses an identical pair:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # TOKEN_ENCRYPTION_KEY
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # DOCUMENT_ENCRYPTION_KEY
 ```
 
 Put the printed UUID in `.env` as `MCP_DEV_USER_ID`, and set `MCP_DEV_TOKEN` to any non-empty
@@ -144,9 +159,24 @@ links a different bank, which is the normal multi-item case.
 npm run dev       # http://localhost:3000 — needs the two Clerk keys
 ```
 
-Sign up, connect a bank (First Platypus is the sandbox default), then set your annual spend
-target in the FIRE card on the dashboard. That card is the only thing on the page that needs
-it; everything else renders without one.
+Sign up, then either connect a bank (First Platypus is the sandbox default) or add your own
+records — both work alone or together. Set your annual spend target in the FIRE card on the
+dashboard; it is the only thing on the page that needs one.
+
+**Your own records:**
+
+- **/accounts/new** — type an account in by hand, with a dated balance.
+- **/import** — upload a CSV export or a PDF statement. A CSV is read by code alone; a PDF by
+  an AI model that may only copy figures exactly as printed, every one checked against the
+  statement's own text. Either way you land on a **review screen**, and nothing reaches your
+  records until you import it from there. The step that matters most is *"Is this the right way
+  round?"* — banks disagree about whether spending is negative, and getting it backwards inverts
+  your savings rate without anything looking wrong.
+- **/sources** — every bank connection, every account you keep yourself, and your documents, in
+  one place. Disconnecting a bank and deleting a document live here.
+
+Scanned (image-only) PDFs are refused rather than guessed at, and re-uploading a file you have
+already imported is recognised and ignored.
 
 Your Clerk signup is a **different `users` row** from the sandbox user that `link:sandbox`
 creates, unless the email happens to match an unclaimed seeded row (`claimSeededUser`). So a
@@ -192,6 +222,7 @@ npm test          # compute suite + agent guard + workflows — the correctness 
 npm run typecheck # root packages and the web app
 npm run build     # production build of apps/web
 npm run agent:smoke
+npm run transcribe:smoke   # one live model call on a fictional, in-memory PDF statement
 ```
 
 `agent:smoke` is the fastest end-to-end check: it bypasses Clerk, fetches a live snapshot for
@@ -330,9 +361,9 @@ the model declines instead of subtracting. That refusal is the feature.
 
 ## Not yet built
 
-- **Phase 2 — document ingestion.** The current work: CSV, PDF, and typed-entry sources feeding
-  the same snapshot Plaid does, so the app works for a user with no bank connected at all. The
-  buildable spec is `docs/PHASE-2-INGESTION.md`.
+- **Checkpoint 2 — the run on real documents.** Phase 2 is built and tested against fixtures
+  and the live sandbox; the acceptance run needs the author's own CSV and PDF and is listed in
+  `docs/STATE.md`. No page of the new UI has been opened in a browser yet.
 - **Phase 3 — the playground.** A developer area at `/playground` (gated by `PLAYGROUND_ENABLED`)
   that follows one question through every stage — snapshot, router, workflow, evidence,
   synthesis, guard — and lets any stage run alone with edited input or changed prompts and

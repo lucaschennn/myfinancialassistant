@@ -11,6 +11,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@pfg/core": "*",
     "@pfg/db": "*",
+    "@pfg/ingest": "*",
     "@pfg/plaid": "*",
     "dotenv": "^17.4.2",
     "zod": "^4.4.3"

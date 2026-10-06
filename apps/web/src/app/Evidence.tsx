@@ -12,6 +12,7 @@
  */
 
 import type { EvidenceBundle, EvidenceEntry, Limitation, Provenance } from '@pfg/core';
+import { SourceBadge } from './SourceBadge';
 
 /** Human labels for tool names; the raw name is still shown in monospace. */
 const TOOL_LABELS: Record<string, string> = {
@@ -59,6 +60,19 @@ function ProvenanceDetail({ provenance }: { provenance: Provenance }) {
           <> · from {provenance.inputs.join(', ')}</>
         )}
       </div>
+      {/*
+        Where the underlying data came from (§0.4, §4): a live bank fetch, your
+        own records, or both. Distinct from the method label above, which says
+        how the figure was obtained rather than whose data it rests on.
+      */}
+      {provenance.sources && provenance.sources.length > 0 && (
+        <div className="prov">
+          Data from
+          {provenance.sources.map((source) => (
+            <SourceBadge key={source} source={source} />
+          ))}
+        </div>
+      )}
       {/*
         §6 honest-about-gaps. Notes are the place a figure admits it is less
         complete than it looks, so they are rendered, never collapsed away.

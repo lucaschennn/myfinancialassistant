@@ -33,6 +33,7 @@ import {
   runWorkflow,
   savingsRate,
   setGoal,
+  deleteGoal,
   setProfile,
   spendingByCategory,
   toJson,
@@ -122,8 +123,8 @@ server.registerTool(
   {
     title: 'Session status',
     description:
-      'Show which sandbox user this harness is bound to and whether a live Plaid snapshot ' +
-      'is currently held in memory.',
+      'Show which sandbox user this harness is bound to and whether a snapshot (live Plaid ' +
+      'data merged with the manual ledger) is currently held in memory.',
     inputSchema: {},
   },
   handler(async () => session.status()),
@@ -134,8 +135,9 @@ server.registerTool(
   {
     title: 'Refresh snapshot',
     description:
-      'Force a fresh live fetch of balances, holdings, and transactions from Plaid. Other ' +
-      'tools fetch automatically when needed; use this to pick up sandbox changes.',
+      'Force a fresh snapshot: balances, holdings, and transactions fetched live from Plaid ' +
+      'and read from the manual ledger (the user\'s own statements and typed entries), merged. ' +
+      'Other tools fetch automatically when needed; use this to pick up changes.',
     inputSchema: {},
   },
   handler(async () => {
@@ -147,9 +149,10 @@ server.registerTool(
         holdingCount: snapshot.holdings.length,
         transactionCount: snapshot.transactions.length,
         transactionWindow: snapshot.transactionWindow,
+        sources: snapshot.sources,
         gaps: snapshot.gaps,
       },
-      provenance: { source: 'plaid', asOf: snapshot.fetchedAt },
+      provenance: { source: 'plaid', asOf: snapshot.fetchedAt, sources: snapshot.sources },
     };
   }),
 );
@@ -462,6 +465,16 @@ server.registerTool(
       ...(args.targetDate !== undefined ? { targetDate: args.targetDate } : {}),
     });
   }),
+);
+
+server.registerTool(
+  'deleteGoal',
+  {
+    title: 'Delete goal',
+    description: 'Remove one of this user\'s goals by id (from getUserContext).',
+    inputSchema: { goalId: z.string().uuid().describe('The goal id.') },
+  },
+  handler(async (args: { goalId: string }) => deleteGoal(session.dbCtx(), args.goalId)),
 );
 
 server.registerTool(

@@ -9,9 +9,10 @@
  * The snapshot still never touches disk.
  */
 
-import { type Ctx, type SessionSnapshot } from '@pfg/core';
+import { type Ctx, type SessionSnapshot, mergeSources, transactionWindowFor } from '@pfg/core';
 import { type Database, getDb } from '@pfg/db';
-import { fetchSnapshot } from '@pfg/plaid';
+import { readManualSource } from '@pfg/ingest';
+import { fetchPlaidSource } from '@pfg/plaid';
 
 export interface HarnessConfig {
   userId: string;
@@ -92,11 +93,21 @@ export class Session {
   }
 
   private async fetch(): Promise<SessionSnapshot> {
-    const snapshot = await fetchSnapshot({
-      userId: this.config.userId,
-      db: this.db,
-      transactionDays: this.config.transactionDays,
-    });
+    const now = new Date();
+    const [plaid, manual] = await Promise.all([
+      fetchPlaidSource({
+        userId: this.config.userId,
+        db: this.db,
+        transactionDays: this.config.transactionDays,
+        now,
+      }),
+      readManualSource({
+        userId: this.config.userId,
+        db: this.db,
+        transactionWindow: transactionWindowFor(this.config.transactionDays, now),
+      }),
+    ]);
+    const snapshot = mergeSources(this.config.userId, [plaid, manual], now);
     this.snapshot = snapshot;
     this.fetchedAtMs = Date.now();
     return snapshot;

@@ -662,3 +662,211 @@ button.primary,
   color: var(--negative);
   font-size: 13px;
 }
+
+/* --- sources (Phase 2) ---------------------------------------------------- */
+
+/* Where a figure came from, in words. Never colour alone. */
+.source-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  margin-left: 8px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+.source-badge.source-manual {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+/* --- forms ---------------------------------------------------------------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: 12px 18px;
+  align-items: start;
+  margin-top: 18px;
+  max-width: 640px;
+}
+
+.form-grid > label {
+  font-size: 14px;
+  color: var(--text-muted);
+  padding-top: 9px;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.form-grid input:focus,
+.form-grid select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field-hint {
+  margin: 4px 0 0;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .form-grid > label {
+    padding-top: 10px;
+  }
+}
+
+/* --- import & review (Phase 2) ---------------------------------------------- */
+
+/* Exactly what the document said. Monospace so a stray comma or sign is visible. */
+.raw {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.arrow {
+  color: var(--text-faint);
+}
+
+/* Who produced a value. The words carry it; the colour only helps. */
+.origin {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.origin-transcribed {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.origin-user {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.checklist {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--warn);
+}
+
+.checklist li + li {
+  margin-top: 4px;
+}
+
+.choice-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.sample-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sample-list li {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.status-pill {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.status-pill.status-needs_review {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.status-pill.status-committed {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.status-pill.status-failed {
+  border-color: var(--negative);
+  color: var(--negative);
+}
+
+tr.excluded td {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+tr.excluded td:first-child {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.link-button {
+  font: inherit;
+  font-size: 13px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover:not(:disabled) {
+  color: var(--text);
+}
